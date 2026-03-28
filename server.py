@@ -38,6 +38,6 @@ class RangeHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 if __name__ == '__main__':
     import sys
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9090
-    server = http.server.HTTPServer(('', port), RangeHTTPRequestHandler)
+    server = http.server.ThreadingHTTPServer(('', port), RangeHTTPRequestHandler)
     print(f'Serving on http://localhost:{port} (with Range support)')
     server.serve_forever()

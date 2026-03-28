@@ -18,19 +18,17 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  #video-container {
+  #player {
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     position: relative;
     overflow: hidden;
+    display: none;
   }
 
-  video {
+  #main-canvas {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    display: block;
   }
 
   #score-display {
@@ -41,42 +39,22 @@
     opacity: 0.5;
     pointer-events: none;
     line-height: 1.4;
-    max-width: 60%;
+    max-width: 50%;
+    z-index: 10;
   }
 
   #score-display .current { color: #fff; opacity: 1; }
   #score-display .past { color: #666; }
   #score-display .future { color: #999; }
 
-  #controls {
-    background: #111;
-    padding: 12px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    border-top: 1px solid #222;
-  }
-
-  #play-btn {
-    background: #fff;
-    color: #000;
-    border: none;
-    padding: 14px;
-    font-size: 18px;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    cursor: pointer;
-    letter-spacing: 2px;
-    transition: opacity 0.2s;
-  }
-
-  #play-btn:active { opacity: 0.7; }
-  #play-btn.playing { background: #333; color: #fff; }
-
   #progress-bar {
     width: 100%;
     height: 3px;
     background: #333;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    z-index: 10;
   }
 
   #progress-fill {
@@ -86,7 +64,19 @@
     transition: width 0.3s linear;
   }
 
-  #start-screen {
+  #debug {
+    position: fixed;
+    bottom: 8px;
+    right: 8px;
+    font-size: 10px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 200;
+    text-align: right;
+    line-height: 1.4;
+  }
+
+  .overlay {
     position: fixed;
     inset: 0;
     background: #000;
@@ -100,80 +90,116 @@
     text-align: center;
   }
 
-  #start-screen h1 {
+  .overlay h1 {
     font-size: 24px;
     font-weight: normal;
     letter-spacing: 4px;
     text-transform: uppercase;
   }
 
-  #start-btn {
+  .overlay p { font-size: 13px; opacity: 0.5; }
+
+  .overlay button {
     background: none;
     border: 1px solid #fff;
     color: #fff;
-    padding: 16px 48px;
-    font-size: 16px;
+    padding: 14px 36px;
+    font-size: 14px;
     font-family: 'Courier New', monospace;
     cursor: pointer;
-    letter-spacing: 3px;
-    margin-top: 20px;
+    letter-spacing: 2px;
     transition: background 0.2s, color 0.2s;
   }
 
-  #start-btn:active { background: #fff; color: #000; }
+  .overlay button:active,
+  .overlay button.selected { background: #fff; color: #000; }
 
-  #loading {
+  #loading { display: none; margin-top: 16px; width: 200px; }
+  #loading p { font-size: 12px; opacity: 0.5; margin-bottom: 6px; }
+  #load-bar { width: 100%; height: 2px; background: #333; }
+  #load-fill { height: 100%; background: #fff; width: 0%; transition: width 0.2s linear; }
+  .option-group { display: flex; gap: 12px; margin-top: 4px; flex-wrap: wrap; justify-content: center; }
+  .option-section { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+  #desktop-grid {
     display: none;
-    margin-top: 16px;
-    width: 200px;
+    flex-wrap: wrap;
   }
 
-  #loading p {
-    font-size: 12px;
-    opacity: 0.5;
-    margin-bottom: 6px;
+  #desktop-grid .desk-channel {
+    overflow: hidden;
   }
 
-  #load-bar {
+  #desktop-grid .desk-channel video {
     width: 100%;
-    height: 2px;
-    background: #333;
-  }
-
-  #load-fill {
     height: 100%;
-    background: #fff;
-    width: 0%;
-    transition: width 0.2s linear;
+    object-fit: contain;
+    opacity: 0;
   }
 
+  #go-btn {
+    margin-top: 20px; padding: 16px 48px; font-size: 16px;
+    letter-spacing: 3px; opacity: 0.2; pointer-events: none; transition: opacity 0.3s;
+  }
+  #go-btn.ready { opacity: 1; pointer-events: auto; }
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
-<div id="start-screen">
+<div id="start-screen" class="overlay">
   <h1>Laptop Choral</h1>
   <button id="start-btn">ENTRAR</button>
   <div id="loading">
-    <p>carregando...</p>
+    <p id="loading-text">carregando...</p>
     <div id="load-bar"><div id="load-fill"></div></div>
   </div>
 </div>
 
-<div id="video-container">
-  <video id="video" preload="metadata" playsinline webkit-playsinline>
-    <source src="leve_540p.mp4" type="video/mp4">
-  </video>
-  <div id="score-display"></div>
+<div id="config-screen" class="overlay hidden">
+  <div class="option-section">
+    <p>duração da partitura:</p>
+    <div class="option-group">
+      <button class="dur-btn" data-duration="60">1 MIN</button>
+      <button class="dur-btn" data-duration="180">3 MIN</button>
+      <button class="dur-btn" data-duration="300">5 MIN</button>
+    </div>
+  </div>
+  <div class="option-section">
+    <p>canais:</p>
+    <div class="option-group" id="channel-buttons">
+      <button class="ch-btn" data-channels="1">1</button>
+      <button class="ch-btn" data-channels="2">2</button>
+      <button class="ch-btn" data-channels="3">3</button>
+      <button class="ch-btn" data-channels="4">4</button>
+    </div>
+  </div>
+  <button id="go-btn">GERAR E REPRODUZIR PARTITURA</button>
+  <div id="loading-gen" style="display:none; margin-top: 16px; width: 200px;">
+    <p id="gen-text" style="font-size: 12px; opacity: 0.5; margin-bottom: 6px;">gerando partitura...</p>
+    <div style="width:100%; height:2px; background:#333;"><div id="gen-fill" style="height:2px; background:#fff; width:0%; transition: width 0.1s linear;"></div></div>
+  </div>
 </div>
 
-<div id="controls">
+<!-- Hidden video — used only for frame extraction -->
+<video id="src-video" preload="auto" playsinline webkit-playsinline muted style="display:none;"></video>
+
+<div id="player">
+  <!-- Mobile multi-channel: canvas -->
+  <canvas id="main-canvas"></canvas>
+  <!-- Single channel: direct video -->
+  <video id="solo-video" playsinline webkit-playsinline preload="none" style="display:none; width:100%; height:100%; object-fit:contain; opacity:0;"></video>
+  <!-- Desktop multi-channel: multiple videos in grid -->
+  <div id="desktop-grid" style="display:none; width:100%; height:100%;"></div>
+  <div id="score-display"></div>
   <div id="progress-bar"><div id="progress-fill"></div></div>
-  <button id="play-btn">PLAY</button>
 </div>
+<div id="debug"></div>
 
 <script>
+// ============================================================
+// FRAGMENTS
+// ============================================================
 const FRAGMENTS = [
   { id: 1,  start: 2.0,   end: 5.5   },
   { id: 2,  start: 8.0,   end: 10.2  },
@@ -194,181 +220,940 @@ const FRAGMENTS = [
   { id: 17, start: 150.0, end: 155.0 },
 ];
 
-const SCORE_CONFIG = {
-  targetDuration: 90,
-  durationVariance: 15,
-  maxRepeats: 3,
-  repeatProbability: 0.3,
-};
+const FADE_DURATION = 10;
+const EXTRACT_FPS = 24;
+const VIDEO_ASPECT = 4 / 3;
+const DECODE_AHEAD = 8;
+const MAX_DECODED = 100;
+const VIDEO_SRC = 'V3_final_hd.mp4';
 
-function generateScore() {
-  const target = SCORE_CONFIG.targetDuration +
-    (Math.random() * 2 - 1) * SCORE_CONFIG.durationVariance;
+// Detect iOS/iPadOS — these have the single decoder limitation
+const IS_MOBILE = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
 
+// ============================================================
+// STATE
+// ============================================================
+let audioCtx = null;
+let fullAudioBuffer = null;
+let blobCache = {};            // { fragmentId: [Blob(jpeg), ...] } — compressed, lightweight
+let decodedFrames = new Map(); // "fragId_idx" → ImageBitmap — decoded, evicted by LRU
+let extractW = 0;
+let extractH = 0;
+let selectedDuration = null;
+let selectedChannels = null;
+let channels = [];
+let playbackStartTime = 0;
+let playbackRAF = null;
+let canvas, ctx;
+
+// ============================================================
+// DEBUG
+// ============================================================
+const debugEl = document.getElementById('debug');
+function dbg(text) {
+  debugEl.textContent = text;
+  console.log('[LC]', text);
+}
+
+// ============================================================
+// SCORE GENERATION
+// ============================================================
+function generateScore(targetDuration) {
+  const variance = targetDuration * 0.1;
+  const target = targetDuration + (Math.random() * 2 - 1) * variance;
   const score = [];
   let totalDuration = 0;
   const shuffled = [...FRAGMENTS].sort(() => Math.random() - 0.5);
   let idx = 0;
-
-  while (totalDuration < target && idx < shuffled.length * 3) {
+  while (totalDuration < target && idx < shuffled.length * 10) {
     const frag = shuffled[idx % shuffled.length];
     const fragDuration = frag.end - frag.start;
-
     let repeats = 1;
-    if (Math.random() < SCORE_CONFIG.repeatProbability) {
-      repeats = 1 + Math.floor(Math.random() * SCORE_CONFIG.maxRepeats);
-    }
-
+    if (Math.random() < 0.3) repeats = 1 + Math.floor(Math.random() * 3);
     for (let r = 0; r < repeats; r++) {
-      if (totalDuration + fragDuration > target + SCORE_CONFIG.durationVariance) break;
+      if (totalDuration + fragDuration > target + variance) break;
       score.push({ ...frag, repeatIndex: r });
       totalDuration += fragDuration;
     }
     idx++;
   }
-
   return { score, totalDuration };
 }
 
-const video = document.getElementById('video');
-let audioCtx = null;
-let currentScore = null;
-let currentStep = -1;
-let isPlaying = false;
-let scoreStartTime = 0;
-let stepTimeout = null;
-
-function initAudio() {
-  if (audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const source = audioCtx.createMediaElementSource(video);
-  source.connect(audioCtx.destination);
+// ============================================================
+// CANVAS LAYOUT
+// ============================================================
+function getChannelLayout(numChannels, cw, ch) {
+  const isLandscape = cw > ch;
+  if (numChannels === 1) return [{ x: 0, y: 0, w: cw, h: ch }];
+  if (numChannels === 2) {
+    if (isLandscape) return [{ x: 0, y: 0, w: cw/2, h: ch }, { x: cw/2, y: 0, w: cw/2, h: ch }];
+    return [{ x: 0, y: 0, w: cw, h: ch/2 }, { x: 0, y: ch/2, w: cw, h: ch/2 }];
+  }
+  if (numChannels === 3) {
+    if (isLandscape) return [{ x: 0, y: 0, w: cw/3, h: ch }, { x: cw/3, y: 0, w: cw/3, h: ch }, { x: 2*cw/3, y: 0, w: cw/3, h: ch }];
+    return [{ x: 0, y: 0, w: cw, h: ch/3 }, { x: 0, y: ch/3, w: cw, h: ch/3 }, { x: 0, y: 2*ch/3, w: cw, h: ch/3 }];
+  }
+  return [
+    { x: 0, y: 0, w: cw/2, h: ch/2 }, { x: cw/2, y: 0, w: cw/2, h: ch/2 },
+    { x: 0, y: ch/2, w: cw/2, h: ch/2 }, { x: cw/2, y: ch/2, w: cw/2, h: ch/2 },
+  ];
 }
 
-function playScore() {
-  if (isPlaying) { stopScore(); return; }
-
-  const { score, totalDuration } = generateScore();
-  currentScore = score;
-  currentStep = -1;
-  isPlaying = true;
-  scoreStartTime = Date.now();
-
-  document.getElementById('play-btn').textContent = 'GERAR NOVA PARTITURA';
-  document.getElementById('play-btn').classList.add('playing');
-
-  renderScoreDisplay();
-  playNextStep();
+function getDrawSize(cellW, cellH) {
+  const cellAspect = cellW / cellH;
+  if (VIDEO_ASPECT > cellAspect) {
+    return { w: Math.round(cellW), h: Math.round(cellW / VIDEO_ASPECT) };
+  }
+  return { w: Math.round(cellH * VIDEO_ASPECT), h: Math.round(cellH) };
 }
 
-function stopScore() {
-  isPlaying = false;
-  currentStep = -1;
-  if (stepTimeout) clearTimeout(stepTimeout);
-  video.pause();
-  document.getElementById('play-btn').textContent = 'PLAY';
-  document.getElementById('play-btn').classList.remove('playing');
-  document.getElementById('progress-fill').style.width = '0%';
-  document.getElementById('score-display').innerHTML = '';
+// ============================================================
+// FRAME EXTRACTION — store as compressed JPEG Blobs
+// ============================================================
+function waitForSeeked(video) {
+  return new Promise(resolve => {
+    let done = false;
+    const onSeeked = () => { if (done) return; done = true; video.removeEventListener('seeked', onSeeked); resolve(); };
+    video.addEventListener('seeked', onSeeked);
+    setTimeout(() => { if (!done) { done = true; resolve(); } }, 500);
+  });
 }
 
-function playNextStep() {
-  if (!isPlaying) return;
-  currentStep++;
+function canvasToBlob(canvas, type, quality) {
+  return new Promise(resolve => canvas.toBlob(resolve, type, quality));
+}
 
-  if (currentStep >= currentScore.length) { stopScore(); return; }
+async function extractFrames(fragmentIds, drawW, drawH, onProgress) {
+  const video = document.getElementById('src-video');
+  const w = drawW;
+  const h = drawH;
 
-  const step = currentScore[currentStep];
-  video.currentTime = step.start;
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = w;
+  tmpCanvas.height = h;
+  const tmpCtx = tmpCanvas.getContext('2d');
 
-  video.onseeked = () => {
-    video.onseeked = null;
-    if (!isPlaying) return;
+  const uniqueFrags = [...new Set(fragmentIds)]
+    .map(id => FRAGMENTS.find(f => f.id === id))
+    .filter(Boolean)
+    .sort((a, b) => a.start - b.start);
 
-    video.play();
-    renderScoreDisplay();
-    updateProgress();
+  let totalFrames = 0;
+  for (const frag of uniqueFrags) {
+    totalFrames += Math.ceil((frag.end - frag.start) * EXTRACT_FPS);
+  }
 
-    const onTimeUpdate = () => {
-      if (video.currentTime >= step.end) {
-        video.removeEventListener('timeupdate', onTimeUpdate);
-        video.pause();
-        playNextStep();
+  let extracted = 0;
+  blobCache = {};
+  let totalBlobSize = 0;
+
+  for (const frag of uniqueFrags) {
+    const frames = [];
+    const numFrames = Math.ceil((frag.end - frag.start) * EXTRACT_FPS);
+
+    for (let i = 0; i < numFrames; i++) {
+      const t = frag.start + i / EXTRACT_FPS;
+      video.currentTime = t;
+      await waitForSeeked(video);
+
+      tmpCtx.drawImage(video, 0, 0, w, h);
+      const blob = await canvasToBlob(tmpCanvas, 'image/jpeg', 0.8);
+      frames.push(blob);
+      totalBlobSize += blob.size;
+
+      extracted++;
+      if (onProgress) onProgress(extracted / totalFrames);
+
+      if (extracted % 30 === 0) {
+        await new Promise(r => setTimeout(r, 0));
       }
-    };
-    video.addEventListener('timeupdate', onTimeUpdate);
+    }
 
-    stepTimeout = setTimeout(() => {
-      video.removeEventListener('timeupdate', onTimeUpdate);
-      video.pause();
-      playNextStep();
-    }, ((step.end - step.start) / video.playbackRate + 0.5) * 1000);
-  };
+    blobCache[frag.id] = frames;
+  }
+
+  extractW = w;
+  extractH = h;
+  dbg(`${extracted} frames ${w}x${h} @${EXTRACT_FPS}fps | ${(totalBlobSize/1024/1024).toFixed(1)}MB JPEG`);
 }
 
+// ============================================================
+// DECODE CACHE — decompress JPEGs on demand
+// ============================================================
+function getFrameKey(fragId, idx) {
+  return (fragId << 16) | idx; // fast numeric key
+}
+
+async function decodeFrame(fragId, idx) {
+  const key = getFrameKey(fragId, idx);
+  if (decodedFrames.has(key)) return;
+
+  const blob = blobCache[fragId]?.[idx];
+  if (!blob) return;
+
+  const bmp = await createImageBitmap(blob);
+  decodedFrames.set(key, bmp);
+
+  // Evict oldest if too many
+  while (decodedFrames.size > MAX_DECODED) {
+    const firstKey = decodedFrames.keys().next().value;
+    const old = decodedFrames.get(firstKey);
+    old.close();
+    decodedFrames.delete(firstKey);
+  }
+}
+
+function prefetchFrames(elapsed) {
+  for (const ch of channels) {
+    let accum = 0;
+    for (const frag of ch.score) {
+      const dur = frag.end - frag.start;
+      if (elapsed < accum + dur) {
+        const timeInFrag = elapsed - accum;
+        const startIdx = Math.max(0, Math.floor(timeInFrag * EXTRACT_FPS));
+        const maxIdx = blobCache[frag.id]?.length || 0;
+        for (let i = startIdx; i < startIdx + DECODE_AHEAD && i < maxIdx; i++) {
+          decodeFrame(frag.id, i); // fire-and-forget
+        }
+        break;
+      }
+      accum += dur;
+    }
+  }
+}
+
+async function preDecodeInitialFrames() {
+  const promises = [];
+  for (const ch of channels) {
+    if (ch.score.length === 0) continue;
+    const frag = ch.score[0];
+    const maxIdx = Math.min(DECODE_AHEAD, blobCache[frag.id]?.length || 0);
+    for (let i = 0; i < maxIdx; i++) {
+      promises.push(decodeFrame(frag.id, i));
+    }
+  }
+  await Promise.all(promises);
+}
+
+function clearDecodedFrames() {
+  for (const bmp of decodedFrames.values()) {
+    bmp.close();
+  }
+  decodedFrames.clear();
+}
+
+// ============================================================
+// AUDIO COMPOSITION
+// ============================================================
+function composeAudioBuffer(score) {
+  const sr = fullAudioBuffer.sampleRate;
+  const nch = fullAudioBuffer.numberOfChannels;
+
+  let totalSamples = 0;
+  for (const s of score) totalSamples += Math.ceil((s.end - s.start) * sr);
+
+  const buf = audioCtx.createBuffer(nch, totalSamples, sr);
+  let offset = 0;
+
+  for (const s of score) {
+    const startSample = Math.floor(s.start * sr);
+    const length = Math.ceil((s.end - s.start) * sr);
+    for (let ch = 0; ch < nch; ch++) {
+      const src = fullAudioBuffer.getChannelData(ch);
+      const dst = buf.getChannelData(ch);
+      const copyLen = Math.min(length, src.length - startSample, totalSamples - offset);
+      for (let i = 0; i < copyLen; i++) {
+        dst[offset + i] = src[startSample + i];
+      }
+    }
+    offset += length;
+  }
+
+  return buf;
+}
+
+// ============================================================
+// RENDER LOOP
+// ============================================================
+function renderFrame() {
+  try {
+    const elapsed = audioCtx.currentTime - playbackStartTime;
+    const layout = getChannelLayout(selectedChannels, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Prefetch upcoming frames (async, non-blocking)
+    prefetchFrames(elapsed);
+
+    let anyPlaying = false;
+
+    for (let i = 0; i < selectedChannels; i++) {
+      const ch = channels[i];
+      const rect = layout[i];
+
+      let accum = 0;
+      let currentFrag = null;
+      let currentStep = -1;
+      let timeInFrag = 0;
+
+      for (let s = 0; s < ch.score.length; s++) {
+        const frag = ch.score[s];
+        const fragDur = frag.end - frag.start;
+        if (elapsed < accum + fragDur) {
+          currentFrag = frag;
+          currentStep = s;
+          timeInFrag = elapsed - accum;
+          break;
+        }
+        accum += fragDur;
+      }
+
+      if (!currentFrag) continue;
+      anyPlaying = true;
+      ch.currentStep = currentStep;
+
+      const blobs = blobCache[currentFrag.id];
+      if (!blobs || blobs.length === 0) continue;
+
+      const frameIndex = Math.max(0, Math.min(
+        Math.floor(timeInFrag * EXTRACT_FPS),
+        blobs.length - 1
+      ));
+
+      // Get decoded frame or fallback to last known
+      const key = getFrameKey(currentFrag.id, frameIndex);
+      const frame = decodedFrames.get(key) || ch._lastFrame;
+      if (!frame) continue;
+      ch._lastFrame = frame;
+
+      // Fade
+      let alpha = 1;
+      if (elapsed <= 0) alpha = 0;
+      else if (elapsed < FADE_DURATION) alpha = elapsed / FADE_DURATION;
+      if (elapsed > ch.totalDuration - FADE_DURATION) {
+        alpha = Math.max(0, (ch.totalDuration - elapsed) / FADE_DURATION);
+      }
+
+      ctx.globalAlpha = alpha;
+      const dx = rect.x + (rect.w - extractW) / 2;
+      const dy = rect.y + (rect.h - extractH) / 2;
+      ctx.drawImage(frame, dx, dy, extractW, extractH);
+      ctx.globalAlpha = 1;
+    }
+
+    // Throttled DOM updates
+    if (!renderFrame._lastDOM || elapsed - renderFrame._lastDOM > 0.25) {
+      renderFrame._lastDOM = elapsed;
+      renderScoreDisplay();
+      if (channels[0]) {
+        const pct = Math.min(100, (elapsed / channels[0].totalDuration) * 100);
+        document.getElementById('progress-fill').style.width = pct + '%';
+      }
+      dbg(`t=${elapsed.toFixed(1)}s | ${selectedChannels}ch @${EXTRACT_FPS}fps | dec=${decodedFrames.size}`);
+    }
+
+    if (anyPlaying || elapsed < 0) {
+      playbackRAF = requestAnimationFrame(renderFrame);
+    } else {
+      setTimeout(finishPlayback, 2000);
+    }
+  } catch (e) {
+    dbg('ERRO: ' + e.message + ' | ' + e.stack?.split('\n')[1]?.trim());
+    console.error(e);
+  }
+}
+
+// ============================================================
+// SCORE DISPLAY
+// ============================================================
 function renderScoreDisplay() {
-  if (!currentScore) return;
+  if (!channels[0]) return;
+  const st = channels[0];
+  const step = st.currentStep;
+  if (step == null || step < 0) return;
   const display = document.getElementById('score-display');
   let html = '';
-  const s0 = Math.max(0, currentStep - 2);
-  const s1 = Math.min(currentScore.length, currentStep + 5);
-
+  const s0 = Math.max(0, step - 2);
+  const s1 = Math.min(st.score.length, step + 5);
   for (let i = s0; i < s1; i++) {
-    const s = currentScore[i];
-    const cls = i < currentStep ? 'past' : i === currentStep ? 'current' : 'future';
+    const s = st.score[i];
+    const cls = i < step ? 'past' : i === step ? 'current' : 'future';
     const rep = s.repeatIndex > 0 ? ` (x${s.repeatIndex + 1})` : '';
-    html += `<div class="${cls}">${String(i + 1).padStart(2, '0')} ${s.start.toFixed(1)}s–${s.end.toFixed(1)}s${rep}</div>`;
+    html += `<div class="${cls}">${String(i + 1).padStart(2, '0')} ${s.start.toFixed(1)}s\u2013${s.end.toFixed(1)}s${rep}</div>`;
   }
   display.innerHTML = html;
 }
 
-function updateProgress() {
-  if (!isPlaying || !currentScore) return;
-  const elapsed = (Date.now() - scoreStartTime) / 1000;
-  let total = 0;
-  for (const s of currentScore) total += (s.end - s.start);
-  const pct = Math.min(100, (elapsed / total) * 100);
-  document.getElementById('progress-fill').style.width = pct + '%';
-  if (isPlaying) requestAnimationFrame(updateProgress);
+// ============================================================
+// SINGLE CHANNEL — direct <video> playback
+// ============================================================
+let soloState = null;
+
+function soloNextStep() {
+  const st = soloState;
+  const vid = document.getElementById('solo-video');
+  if (!st.playing) return;
+  st.step++;
+
+  if (st.step >= st.score.length) {
+    soloFadeOut(() => finishPlayback());
+    return;
+  }
+
+  if (!st.fadeOutStarted) {
+    let remaining = 0;
+    for (let i = st.step; i < st.score.length; i++) remaining += (st.score[i].end - st.score[i].start);
+    if (remaining <= FADE_DURATION) { st.fadeOutStarted = true; soloFadeOut(null); }
+  }
+
+  const s = st.score[st.step];
+  vid.currentTime = s.start;
+  st.currentStep = st.step;
+
+  let seekHandled = false;
+  const onSeeked = () => {
+    if (seekHandled) return;
+    seekHandled = true;
+    vid.removeEventListener('seeked', onSeeked);
+    if (!st.playing) return;
+
+    vid.play().catch(() => soloNextStep());
+
+    const onTimeUpdate = () => {
+      if (vid.currentTime >= s.end) {
+        vid.removeEventListener('timeupdate', onTimeUpdate);
+        vid.pause();
+        if (st.stepTimeout) clearTimeout(st.stepTimeout);
+        soloNextStep();
+      }
+    };
+    vid.addEventListener('timeupdate', onTimeUpdate);
+
+    st.stepTimeout = setTimeout(() => {
+      vid.removeEventListener('timeupdate', onTimeUpdate);
+      vid.pause();
+      soloNextStep();
+    }, ((s.end - s.start) / vid.playbackRate + 1) * 1000);
+  };
+
+  vid.addEventListener('seeked', onSeeked);
+  setTimeout(() => { if (!seekHandled) { seekHandled = true; vid.removeEventListener('seeked', onSeeked); onSeeked(); } }, 2000);
+
+  renderScoreDisplay();
+  const elapsedSteps = st.score.slice(0, st.step).reduce((sum, f) => sum + (f.end - f.start), 0);
+  const total = st.score.reduce((sum, f) => sum + (f.end - f.start), 0);
+  document.getElementById('progress-fill').style.width = (elapsedSteps / total * 100) + '%';
 }
 
-document.getElementById('start-btn').addEventListener('click', () => {
-  initAudio();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+function soloFadeIn() {
+  const vid = document.getElementById('solo-video');
+  vid.style.opacity = '0';
+  vid.volume = 0;
+  const start = Date.now();
+  soloState.fadeInterval = setInterval(() => {
+    const t = Math.min(1, (Date.now() - start) / 1000 / FADE_DURATION);
+    vid.style.opacity = t;
+    vid.volume = t;
+    if (t >= 1) clearInterval(soloState.fadeInterval);
+  }, 30);
+}
 
+function soloFadeOut(onDone) {
+  const vid = document.getElementById('solo-video');
+  const startOpacity = parseFloat(vid.style.opacity) || 1;
+  const startVol = vid.volume;
+  const start = Date.now();
+  if (soloState.fadeInterval) clearInterval(soloState.fadeInterval);
+  soloState.fadeInterval = setInterval(() => {
+    const t = Math.min(1, (Date.now() - start) / 1000 / FADE_DURATION);
+    vid.style.opacity = startOpacity * (1 - t);
+    vid.volume = startVol * (1 - t);
+    if (t >= 1) { clearInterval(soloState.fadeInterval); if (onDone) onDone(); }
+  }, 30);
+}
+
+function startSoloPlayback() {
+  document.getElementById('config-screen').classList.add('hidden');
+  const player = document.getElementById('player');
+  player.style.display = 'block';
+
+  const vid = document.getElementById('solo-video');
+  vid.src = VIDEO_SRC;
+  vid.load();
+  vid.style.display = 'block';
+  document.getElementById('main-canvas').style.display = 'none';
+  document.getElementById('desktop-grid').style.display = 'none';
+
+  const { score, totalDuration } = generateScore(selectedDuration);
+  soloState = {
+    score, totalDuration, step: -1, playing: true,
+    fadeOutStarted: false, fadeInterval: null, stepTimeout: null, currentStep: 0,
+  };
+  channels = [soloState];
+
+  vid.volume = 0;
+  vid.style.opacity = '0';
+  vid.style.visibility = 'hidden';
+
+  vid.play().then(() => {
+    vid.pause();
+    vid.style.visibility = 'visible';
+    soloFadeIn();
+    soloNextStep();
+  }).catch(() => {
+    vid.style.visibility = 'visible';
+    soloFadeIn();
+    soloNextStep();
+  });
+}
+
+// ============================================================
+// DESKTOP MULTI-CHANNEL — multiple <video> elements (no decoder limit)
+// ============================================================
+let desktopChannels = [];
+
+function desktopNextStep(idx) {
+  const ch = desktopChannels[idx];
+  const vid = ch.video;
+  if (!ch.playing) return;
+  ch.step++;
+
+  if (ch.step >= ch.score.length) {
+    desktopFadeOut(idx, () => {
+      ch.playing = false;
+      if (desktopChannels.every(c => !c.playing)) finishPlayback();
+    });
+    return;
+  }
+
+  if (!ch.fadeOutStarted) {
+    let remaining = 0;
+    for (let i = ch.step; i < ch.score.length; i++) remaining += (ch.score[i].end - ch.score[i].start);
+    if (remaining <= FADE_DURATION) { ch.fadeOutStarted = true; desktopFadeOut(idx, null); }
+  }
+
+  const s = ch.score[ch.step];
+  vid.currentTime = s.start;
+  ch.currentStep = ch.step;
+
+  let seekHandled = false;
+  const onSeeked = () => {
+    if (seekHandled) return;
+    seekHandled = true;
+    vid.removeEventListener('seeked', onSeeked);
+    if (!ch.playing) return;
+
+    vid.play().catch(() => desktopNextStep(idx));
+
+    const onTimeUpdate = () => {
+      if (vid.currentTime >= s.end) {
+        vid.removeEventListener('timeupdate', onTimeUpdate);
+        vid.pause();
+        if (ch.stepTimeout) clearTimeout(ch.stepTimeout);
+        desktopNextStep(idx);
+      }
+    };
+    vid.addEventListener('timeupdate', onTimeUpdate);
+
+    ch.stepTimeout = setTimeout(() => {
+      vid.removeEventListener('timeupdate', onTimeUpdate);
+      vid.pause();
+      desktopNextStep(idx);
+    }, ((s.end - s.start) / vid.playbackRate + 1) * 1000);
+  };
+
+  vid.addEventListener('seeked', onSeeked);
+  setTimeout(() => { if (!seekHandled) { seekHandled = true; vid.removeEventListener('seeked', onSeeked); onSeeked(); } }, 2000);
+
+  // Update score display + progress (from channel 0)
+  if (idx === 0) {
+    renderScoreDisplay();
+    const elapsedSteps = ch.score.slice(0, ch.step).reduce((sum, f) => sum + (f.end - f.start), 0);
+    const total = ch.score.reduce((sum, f) => sum + (f.end - f.start), 0);
+    document.getElementById('progress-fill').style.width = (elapsedSteps / total * 100) + '%';
+  }
+}
+
+function desktopFadeIn(idx) {
+  const ch = desktopChannels[idx];
+  const vid = ch.video;
+  vid.style.opacity = '0';
+  vid.volume = 0;
+  const start = Date.now();
+  ch.fadeInterval = setInterval(() => {
+    const t = Math.min(1, (Date.now() - start) / 1000 / FADE_DURATION);
+    vid.style.opacity = t;
+    vid.volume = t;
+    if (t >= 1) clearInterval(ch.fadeInterval);
+  }, 30);
+}
+
+function desktopFadeOut(idx, onDone) {
+  const ch = desktopChannels[idx];
+  const vid = ch.video;
+  const startOpacity = parseFloat(vid.style.opacity) || 1;
+  const startVol = vid.volume;
+  const start = Date.now();
+  if (ch.fadeInterval) clearInterval(ch.fadeInterval);
+  ch.fadeInterval = setInterval(() => {
+    const t = Math.min(1, (Date.now() - start) / 1000 / FADE_DURATION);
+    vid.style.opacity = startOpacity * (1 - t);
+    vid.volume = startVol * (1 - t);
+    if (t >= 1) { clearInterval(ch.fadeInterval); if (onDone) onDone(); }
+  }, 30);
+}
+
+function startDesktopPlayback() {
+  document.getElementById('config-screen').classList.add('hidden');
+  const player = document.getElementById('player');
+  player.style.display = 'block';
+  document.getElementById('main-canvas').style.display = 'none';
+  document.getElementById('solo-video').style.display = 'none';
+
+  const grid = document.getElementById('desktop-grid');
+  grid.style.display = 'flex';
+  grid.innerHTML = '';
+
+  // Determine grid layout via CSS
+  const isLandscape = window.innerWidth > window.innerHeight;
+  if (selectedChannels === 2) {
+    grid.style.flexDirection = isLandscape ? 'row' : 'column';
+  } else if (selectedChannels === 3) {
+    grid.style.flexDirection = isLandscape ? 'row' : 'column';
+  } else {
+    grid.style.flexDirection = 'row';
+    grid.style.flexWrap = 'wrap';
+  }
+
+  desktopChannels = [];
+  channels = [];
+
+  for (let i = 0; i < selectedChannels; i++) {
+    const { score, totalDuration } = generateScore(selectedDuration);
+
+    const div = document.createElement('div');
+    div.className = 'desk-channel';
+    if (selectedChannels <= 3) {
+      div.style.flex = '1';
+    } else {
+      div.style.width = '50%';
+      div.style.height = '50%';
+    }
+
+    const vid = document.createElement('video');
+    vid.setAttribute('playsinline', '');
+    vid.setAttribute('webkit-playsinline', '');
+    vid.preload = 'auto';
+    vid.src = VIDEO_SRC;
+    vid.volume = 0;
+    vid.style.opacity = '0';
+    div.appendChild(vid);
+    grid.appendChild(div);
+
+    const ch = {
+      video: vid, score, totalDuration, step: -1, playing: true,
+      fadeOutStarted: false, fadeInterval: null, stepTimeout: null, currentStep: 0,
+    };
+    desktopChannels.push(ch);
+    channels.push(ch); // for renderScoreDisplay
+  }
+
+  // Authorize and start all channels
+  for (let i = 0; i < selectedChannels; i++) {
+    const vid = desktopChannels[i].video;
+    vid.play().then(() => {
+      vid.pause();
+      desktopFadeIn(i);
+      desktopNextStep(i);
+    }).catch(() => {
+      desktopFadeIn(i);
+      desktopNextStep(i);
+    });
+  }
+
+  dbg(`desktop mode: ${selectedChannels}ch`);
+}
+
+// ============================================================
+// MOBILE MULTI-CHANNEL PLAYBACK (canvas + Web Audio + JPEG decode)
+// ============================================================
+async function startMultiPlayback() {
+  const genText = document.getElementById('gen-text');
+  const genFill = document.getElementById('gen-fill');
+  const loadingGen = document.getElementById('loading-gen');
+
+  document.getElementById('go-btn').classList.add('hidden');
+  loadingGen.style.display = 'block';
+
+  // 1. Generate scores
+  genText.textContent = 'gerando partituras...';
+  channels = [];
+  const allFragIds = [];
+  for (let i = 0; i < selectedChannels; i++) {
+    const { score, totalDuration } = generateScore(selectedDuration);
+    channels.push({ score, totalDuration, currentStep: 0, _lastFrame: null });
+    for (const s of score) allFragIds.push(s.id);
+  }
+
+  // 2. Calculate draw size
+  const canvasW = window.innerWidth;
+  const canvasH = window.innerHeight;
+  const layout = getChannelLayout(selectedChannels, canvasW, canvasH);
+  const cell = layout[0];
+  const drawSize = getDrawSize(cell.w, cell.h);
+
+  dbg(`cell: ${Math.round(cell.w)}x${Math.round(cell.h)} → draw: ${drawSize.w}x${drawSize.h}`);
+
+  // 3. Extract frames as JPEG blobs
+  genText.textContent = 'extraindo frames...';
+  await extractFrames(allFragIds, drawSize.w, drawSize.h, (pct) => {
+    genFill.style.width = (pct * 80) + '%';
+  });
+
+  // 4. Compose audio
+  genText.textContent = 'montando áudio...';
+  genFill.style.width = '85%';
+
+  await audioCtx.resume();
+
+  for (const ch of channels) {
+    const audioBuffer = composeAudioBuffer(ch.score);
+    const source = audioCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    const gain = audioCtx.createGain();
+    source.connect(gain);
+    gain.connect(audioCtx.destination);
+    ch.audioSource = source;
+    ch.gainNode = gain;
+  }
+
+  // 5. Pre-decode initial frames
+  genText.textContent = 'preparando...';
+  genFill.style.width = '95%';
+  await preDecodeInitialFrames();
+  genFill.style.width = '100%';
+
+  // 6. Show canvas
+  document.getElementById('config-screen').classList.add('hidden');
+  loadingGen.style.display = 'none';
+  const player = document.getElementById('player');
+  player.style.display = 'block';
+  document.getElementById('solo-video').style.display = 'none';
+  document.getElementById('main-canvas').style.display = 'block';
+
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  canvas = document.getElementById('main-canvas');
+  canvas.width = canvasW;
+  canvas.height = canvasH;
+  ctx = canvas.getContext('2d');
+
+  // 7. Start all audio
+  playbackStartTime = audioCtx.currentTime + 0.1;
+
+  for (const ch of channels) {
+    const g = ch.gainNode.gain;
+    const t0 = playbackStartTime;
+    const t1 = t0 + ch.totalDuration;
+
+    g.setValueAtTime(0, t0);
+    g.linearRampToValueAtTime(1, t0 + FADE_DURATION);
+    if (t1 - FADE_DURATION > t0 + FADE_DURATION) g.setValueAtTime(1, t1 - FADE_DURATION);
+    g.linearRampToValueAtTime(0, t1);
+
+    ch.audioSource.start(t0);
+    ch.audioSource.onended = () => { ch.finished = true; };
+  }
+
+  renderFrame._lastDOM = 0;
+  playbackRAF = requestAnimationFrame(renderFrame);
+}
+
+// ============================================================
+// PLAYBACK ROUTER
+// ============================================================
+async function startPlayback() {
+  if (selectedChannels === 1) {
+    startSoloPlayback();
+  } else if (!IS_MOBILE) {
+    startDesktopPlayback();
+  } else {
+    await startMultiPlayback();
+  }
+}
+
+// ============================================================
+// FINISH
+// ============================================================
+function finishPlayback() {
+  // Cleanup mobile multi-channel
+  if (playbackRAF) cancelAnimationFrame(playbackRAF);
+  for (const ch of channels) {
+    try { ch.audioSource?.stop(); } catch (e) {}
+    try { ch.gainNode?.disconnect(); } catch (e) {}
+  }
+  clearDecodedFrames();
+  blobCache = {};
+
+  // Cleanup solo
+  if (soloState) {
+    soloState.playing = false;
+    if (soloState.stepTimeout) clearTimeout(soloState.stepTimeout);
+    if (soloState.fadeInterval) clearInterval(soloState.fadeInterval);
+    const vid = document.getElementById('solo-video');
+    vid.pause();
+    vid.style.opacity = '0';
+    vid.volume = 0;
+    vid.style.display = 'none';
+    vid.removeAttribute('src');
+    vid.load();
+    soloState = null;
+  }
+
+  // Cleanup desktop multi-channel
+  for (const ch of desktopChannels) {
+    ch.playing = false;
+    if (ch.stepTimeout) clearTimeout(ch.stepTimeout);
+    if (ch.fadeInterval) clearInterval(ch.fadeInterval);
+    ch.video.pause();
+    ch.video.removeAttribute('src');
+    ch.video.load();
+  }
+  desktopChannels = [];
+  document.getElementById('desktop-grid').style.display = 'none';
+  document.getElementById('desktop-grid').innerHTML = '';
+
+  channels = [];
+
+  document.getElementById('player').style.display = 'none';
+  document.getElementById('main-canvas').style.display = 'block';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('score-display').innerHTML = '';
+  document.getElementById('start-screen').classList.remove('hidden');
+  document.getElementById('start-btn').style.display = '';
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('load-fill').style.width = '0%';
+  selectedDuration = null;
+  selectedChannels = null;
+  document.querySelectorAll('.dur-btn, .ch-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('go-btn').classList.remove('ready');
+  document.getElementById('go-btn').classList.remove('hidden');
+  document.getElementById('loading-gen').style.display = 'none';
+  document.getElementById('gen-fill').style.width = '0%';
+}
+
+// ============================================================
+// UI
+// ============================================================
+function updateGoButton() {
+  const btn = document.getElementById('go-btn');
+  if (selectedDuration && selectedChannels) btn.classList.add('ready');
+  else btn.classList.remove('ready');
+}
+
+document.querySelectorAll('.dur-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedDuration = parseInt(btn.dataset.duration);
+    updateGoButton();
+  });
+});
+
+document.getElementById('channel-buttons').addEventListener('click', (e) => {
+  const btn = e.target.closest('.ch-btn');
+  if (!btn) return;
+  document.querySelectorAll('.ch-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedChannels = parseInt(btn.dataset.channels);
+  updateGoButton();
+});
+
+document.getElementById('go-btn').addEventListener('click', () => {
+  if (!selectedDuration || !selectedChannels) return;
+  startPlayback().catch(e => dbg('startPlayback ERRO: ' + e.message));
+});
+
+// ============================================================
+// ENTRAR
+// Desktop: skip heavy loading (videos load on demand)
+// Mobile: fetch MP4, decode audio, load video for frame extraction
+// ============================================================
+document.getElementById('start-btn').addEventListener('click', async () => {
   const btn = document.getElementById('start-btn');
   const loading = document.getElementById('loading');
   const loadFill = document.getElementById('load-fill');
+  const loadText = document.getElementById('loading-text');
 
   btn.style.display = 'none';
+
+  if (!IS_MOBILE) {
+    // Desktop: go straight to config
+    dbg('desktop mode');
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('config-screen').classList.remove('hidden');
+    return;
+  }
+
+  // Mobile: need AudioContext + video blob for frame extraction
   loading.style.display = 'block';
 
-  // Track buffering progress
-  const onProgress = () => {
-    if (video.buffered.length > 0) {
-      const pct = (video.buffered.end(video.buffered.length - 1) / video.duration) * 100;
-      loadFill.style.width = pct + '%';
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-  };
-  video.addEventListener('progress', onProgress);
+    await audioCtx.resume();
 
-  // When enough is buffered, enter
-  const onCanPlay = () => {
-    video.removeEventListener('canplaythrough', onCanPlay);
-    video.removeEventListener('progress', onProgress);
+    loadText.textContent = 'baixando vídeo...';
+    const resp = await fetch(VIDEO_SRC);
+    const reader = resp.body.getReader();
+    const contentLength = +resp.headers.get('Content-Length') || 0;
+    let received = 0;
+    const chunks = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      if (contentLength > 0) loadFill.style.width = (received / contentLength * 70) + '%';
+    }
+
+    const arrayBuffer = new Uint8Array(received);
+    let pos = 0;
+    for (const chunk of chunks) { arrayBuffer.set(chunk, pos); pos += chunk.length; }
+
+    loadText.textContent = 'preparando vídeo...';
+    const video = document.getElementById('src-video');
+    const blob = new Blob([arrayBuffer], { type: 'video/mp4' });
+    video.src = URL.createObjectURL(blob);
+
+    await new Promise((resolve) => {
+      video.addEventListener('canplay', resolve, { once: true });
+      setTimeout(resolve, 5000);
+      video.load();
+    });
+    loadFill.style.width = '80%';
+
+    loadText.textContent = 'decodificando áudio...';
+    fullAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer.buffer);
     loadFill.style.width = '100%';
+
+    dbg(`mobile mode | audio: ${fullAudioBuffer.duration.toFixed(1)}s ${fullAudioBuffer.sampleRate}Hz`);
+
     setTimeout(() => {
       document.getElementById('start-screen').classList.add('hidden');
+      document.getElementById('config-screen').classList.remove('hidden');
     }, 200);
-  };
-  video.addEventListener('canplaythrough', onCanPlay);
 
-  // Force load
-  video.preload = 'auto';
-  video.load();
+  } catch (e) {
+    loadText.textContent = 'erro: ' + e.message;
+    console.error(e);
+  }
 });
-
-document.getElementById('play-btn').addEventListener('click', playScore);
 </script>
 
 </body>
