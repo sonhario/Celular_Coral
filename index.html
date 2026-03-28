@@ -67,6 +67,7 @@
   }
 
   #debug {
+    display: none; /* debug log hidden — enable for troubleshooting */
     position: fixed;
     bottom: 8px;
     right: 8px;
@@ -1147,6 +1148,7 @@ async function startMultiPlayback() {
 // PLAYBACK ROUTER
 // ============================================================
 async function startPlayback() {
+  document.getElementById('sobre-btn').style.display = 'none';
   if (selectedChannels === 1) {
     startSoloPlayback();
   } else if (!IS_MOBILE) {
@@ -1203,6 +1205,7 @@ function finishPlayback() {
   document.getElementById('main-canvas').style.display = 'block';
   document.getElementById('progress-fill').style.width = '0%';
   document.getElementById('score-display').innerHTML = '';
+  document.getElementById('sobre-btn').style.display = '';
   document.getElementById('start-screen').classList.remove('hidden');
   document.getElementById('start-btn').style.display = '';
   document.getElementById('loading').style.display = 'none';
