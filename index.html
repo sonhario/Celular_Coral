@@ -1250,7 +1250,15 @@ document.getElementById('channel-buttons').addEventListener('click', (e) => {
 
 document.getElementById('go-btn').addEventListener('click', () => {
   if (!selectedDuration || !selectedChannels) return;
-  if (audioCtx) audioCtx.resume(); // resume immediately in user gesture, before async chain
+  if (audioCtx) {
+    audioCtx.resume();
+    // Force iOS to hand audio session to AudioContext (away from native <video>)
+    const silence = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+    const silenceSrc = audioCtx.createBufferSource();
+    silenceSrc.buffer = silence;
+    silenceSrc.connect(audioCtx.destination);
+    silenceSrc.start();
+  }
   acquireWakeLock();
   startPlayback().catch(e => dbg('startPlayback ERRO: ' + e.message));
 });
