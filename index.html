@@ -685,6 +685,9 @@ function startSoloPlayback() {
   vid.src = VIDEO_SRC;
   vid.load();
   vid.style.display = 'block';
+  player.style.display = 'flex';
+  player.style.alignItems = 'center';
+  player.style.justifyContent = 'center';
   document.getElementById('main-canvas').style.display = 'none';
   document.getElementById('desktop-grid').style.display = 'none';
 
