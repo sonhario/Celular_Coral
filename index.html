@@ -994,16 +994,13 @@ function startDesktopPlayback() {
   grid.style.display = 'flex';
   grid.innerHTML = '';
 
-  // Determine grid layout via CSS
-  const isLandscape = window.innerWidth > window.innerHeight;
-  if (selectedChannels === 2) {
-    grid.style.flexDirection = isLandscape ? 'row' : 'column';
-  } else if (selectedChannels === 3) {
-    grid.style.flexDirection = isLandscape ? 'row' : 'column';
-  } else {
-    grid.style.flexDirection = 'row';
-    grid.style.flexWrap = 'wrap';
-  }
+  // CSS grid — calculate columns based on channel count
+  const colMap = { 1:1, 2:2, 3:3, 4:2, 6:3, 8:4, 12:4, 16:4, 24:6 };
+  const cols = colMap[selectedChannels] || Math.ceil(Math.sqrt(selectedChannels));
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  grid.style.width = '100%';
+  grid.style.height = '100%';
 
   desktopChannels = [];
   channels = [];
@@ -1013,12 +1010,6 @@ function startDesktopPlayback() {
 
     const div = document.createElement('div');
     div.className = 'desk-channel';
-    if (selectedChannels <= 3) {
-      div.style.flex = '1';
-    } else {
-      div.style.width = '50%';
-      div.style.height = '50%';
-    }
 
     const vid = document.createElement('video');
     vid.setAttribute('playsinline', '');
