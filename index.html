@@ -379,6 +379,7 @@ let channels = [];
 let playbackStartTime = 0;
 let playbackRAF = null;
 let canvas, ctx;
+let mobileBlobUrl = null; // blob URL of the video — reused by solo mode to avoid HTTP cache issues
 
 // ============================================================
 // WAKE LOCK — prevent screen sleep during extraction + playback
@@ -857,7 +858,7 @@ function startSoloPlayback() {
   player.style.display = 'block';
 
   const vid = document.getElementById('solo-video');
-  vid.src = VIDEO_SRC;
+  vid.src = (IS_MOBILE && mobileBlobUrl) ? mobileBlobUrl : VIDEO_SRC;
   vid.load();
   vid.style.display = 'block';
   player.style.display = 'flex';
@@ -1316,7 +1317,8 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     loadText.textContent = 'preparando vídeo...';
     const video = document.getElementById('src-video');
     const blob = new Blob([arrayBuffer], { type: 'video/mp4' });
-    video.src = URL.createObjectURL(blob);
+    mobileBlobUrl = URL.createObjectURL(blob);
+    video.src = mobileBlobUrl;
 
     await new Promise((resolve) => {
       video.addEventListener('canplay', resolve, { once: true });
