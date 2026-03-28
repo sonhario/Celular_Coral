@@ -943,7 +943,7 @@ function desktopNextStep(idx) {
   };
 
   vid.addEventListener('seeked', onSeeked);
-  setTimeout(() => { if (!seekHandled) { seekHandled = true; vid.removeEventListener('seeked', onSeeked); onSeeked(); } }, 2000);
+  setTimeout(() => { if (!seekHandled) { seekHandled = true; vid.removeEventListener('seeked', onSeeked); onSeeked(); } }, 5000);
 
   // Update score display + progress (from channel 0)
   if (idx === 0) {
@@ -1029,17 +1029,19 @@ function startDesktopPlayback() {
     channels.push(ch); // for renderScoreDisplay
   }
 
-  // Authorize and start all channels
+  // Authorize and start channels staggered — avoids simultaneous seeks overwhelming the browser
   for (let i = 0; i < selectedChannels; i++) {
-    const vid = desktopChannels[i].video;
-    vid.play().then(() => {
-      vid.pause();
-      desktopFadeIn(i);
-      desktopNextStep(i);
-    }).catch(() => {
-      desktopFadeIn(i);
-      desktopNextStep(i);
-    });
+    setTimeout(() => {
+      const vid = desktopChannels[i].video;
+      vid.play().then(() => {
+        vid.pause();
+        desktopFadeIn(i);
+        desktopNextStep(i);
+      }).catch(() => {
+        desktopFadeIn(i);
+        desktopNextStep(i);
+      });
+    }, i * 250);
   }
 
   dbg(`desktop mode: ${selectedChannels}ch`);
