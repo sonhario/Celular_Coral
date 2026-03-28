@@ -249,6 +249,49 @@ let playbackRAF = null;
 let canvas, ctx;
 
 // ============================================================
+// WAKE LOCK — prevent screen sleep during extraction + playback
+// Strategy: WakeLock API (iOS 16.4+, Chrome), fallback tiny looping video (iOS 15)
+// ============================================================
+let wakeLockSentinel = null;
+let noSleepVideo = null;
+
+// Minimal 1x1 MP4 loop (NoSleep.js technique for old iOS)
+const NOSLEEP_MP4 = 'data:video/mp4;base64,AAAAIGZ0eXBtcDQyAAAAAG1wNDJtcDQxaXNvbQAAAABmcmVlAAAAG21kYXQhEAUgpBgX//8HAQIDlAQFBgcICQoL';
+
+async function acquireWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
+      return;
+    } catch (e) { /* fall through to video fallback */ }
+  }
+  // Fallback: tiny looping video keeps iOS screen alive
+  if (!noSleepVideo) {
+    noSleepVideo = document.createElement('video');
+    noSleepVideo.setAttribute('playsinline', '');
+    noSleepVideo.setAttribute('muted', '');
+    noSleepVideo.loop = true;
+    noSleepVideo.src = NOSLEEP_MP4;
+    noSleepVideo.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;';
+    document.body.appendChild(noSleepVideo);
+  }
+  noSleepVideo.play().catch(() => {});
+}
+
+function releaseWakeLock() {
+  if (wakeLockSentinel) { wakeLockSentinel.release(); wakeLockSentinel = null; }
+  if (noSleepVideo) { noSleepVideo.pause(); }
+}
+
+// Reacquire if page regains visibility (WakeLock auto-releases on background)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !wakeLockSentinel && (playbackRAF || soloState)) {
+    acquireWakeLock();
+  }
+});
+
+// ============================================================
 // DEBUG
 // ============================================================
 const debugEl = document.getElementById('debug');
@@ -1040,6 +1083,7 @@ function finishPlayback() {
   document.getElementById('start-btn').style.display = '';
   document.getElementById('loading').style.display = 'none';
   document.getElementById('load-fill').style.width = '0%';
+  releaseWakeLock();
   selectedDuration = null;
   selectedChannels = null;
   document.querySelectorAll('.dur-btn, .ch-btn').forEach(b => b.classList.remove('selected'));
@@ -1078,6 +1122,7 @@ document.getElementById('channel-buttons').addEventListener('click', (e) => {
 
 document.getElementById('go-btn').addEventListener('click', () => {
   if (!selectedDuration || !selectedChannels) return;
+  acquireWakeLock();
   startPlayback().catch(e => dbg('startPlayback ERRO: ' + e.message));
 });
 
