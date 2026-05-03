@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Celular Coral — Lab 3</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #ccc;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---- HEADER ---- */
+  #header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 14px;
+    background: #111;
+    border-bottom: 1px solid #1e1e1e;
+    flex-shrink: 0;
+  }
+  #header h1 {
+    font-size: 12px; font-weight: normal;
+    letter-spacing: 2px; color: #aaa;
+  }
+  .hbtn {
+    background: none; border: 1px solid #aaa; color: #aaa;
+    padding: 1px 12px; font-family: 'Courier New', monospace;
+    font-size: 12px; letter-spacing: 1px; cursor: pointer;
+    line-height: 1.4;
+    transition: all 0.15s;
+  }
+  .hbtn:hover { border-color: #ddd; color: #ddd; }
+  .hbtn.active { background: #ddd; color: #000; border-color: #ddd; }
+
+  #status { font-size: 11px; color: #444; margin-left: auto; }
+  #status.playing { color: #7c7; }
+  #status.error   { color: #c77; }
+
+  /* ---- CONSOLE ---- */
+  #console-log {
+    padding: 4px 14px; font-size: 11px; color: #888;
+    background: #080808; border-bottom: 1px solid #1a1a1a;
+    height: 78px; line-height: 14px;
+    overflow-y: auto; overflow-x: hidden;
+    flex-shrink: 0;
+  }
+  #console-log div {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #console-log div.err { color: #c77; }
+  #console-log:empty::before {
+    content: '—'; color: #333;
+  }
+  #console-log::-webkit-scrollbar { width: 8px; }
+  #console-log::-webkit-scrollbar-track { background: #080808; }
+  #console-log::-webkit-scrollbar-thumb { background: #222; }
+
+  /* ---- MAIN ---- */
+  #main {
+    flex: 1; display: flex; overflow: hidden; min-height: 0;
+  }
+
+  #editor-panel {
+    width: 50%;
+    display: flex; flex-direction: column;
+    border-right: 1px solid #1a1a1a;
+  }
+
+  #preview-panel {
+    flex: 1;
+    display: flex; flex-direction: column;
+    background: #000;
+  }
+
+  .panel-label {
+    padding: 5px 12px; font-size: 10px; letter-spacing: 2px;
+    color: #aaa; background: #111; border-bottom: 1px solid #1e1e1e;
+    flex-shrink: 0;
+  }
+
+  #editor-wrap { flex: 1; position: relative; overflow: hidden; }
+
+  #gutter {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    width: 44px;
+    padding-top: 12px;
+    background: #0a0a0a;
+    border-right: 1px solid #1a1a1a;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    z-index: 3;
+  }
+  #gutter-inner {
+    font-family: 'Courier New', monospace; font-size: 13px;
+    line-height: 1.55;
+    color: #444;
+    text-align: right;
+    padding-right: 8px;
+    white-space: pre;
+  }
+
+  #highlight, #editor {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    margin: 0; padding: 12px 14px 12px 52px;
+    font-family: 'Courier New', monospace; font-size: 13px;
+    line-height: 1.55;
+    white-space: pre;
+    overflow: auto;
+    border: none;
+    tab-size: 2;
+    word-wrap: normal;
+  }
+  #highlight {
+    background: #0c0c0c; color: #d4d4d4;
+    pointer-events: none;
+    z-index: 1;
+  }
+  #highlight code { font: inherit; background: none !important; padding: 0 !important; text-shadow: none !important; }
+  #editor {
+    background: transparent; color: transparent;
+    caret-color: #fff; outline: none; resize: none;
+    z-index: 2; -webkit-text-fill-color: transparent;
+  }
+
+  /* ── VSCode Dark+ palette (mapeada nas classes de token do Prism) ── */
+  .token.comment,
+  .token.prolog,
+  .token.doctype,
+  .token.cdata           { color: #6A9955; font-style: italic; }
+  .token.punctuation     { color: #d4d4d4; }
+  .token.namespace       { opacity: .7; }
+  .token.tag,
+  .token.keyword,
+  .token.boolean,
+  .token.constant,
+  .token.symbol          { color: #569CD6; }
+  .token.tag .token.punctuation { color: #808080; }
+  .token.attr-name       { color: #9CDCFE; }
+  .token.attr-value,
+  .token.string,
+  .token.char,
+  .token.regex           { color: #CE9178; }
+  .token.attr-value .token.punctuation { color: #d4d4d4; }
+  .token.number          { color: #B5CEA8; }
+  .token.builtin,
+  .token.class-name      { color: #4EC9B0; }
+  .token.function        { color: #DCDCAA; }
+  .token.operator        { color: #d4d4d4; }
+  .token.property,
+  .token.variable        { color: #9CDCFE; }
+  .token.selector        { color: #D7BA7D; }
+  .language-css .token.property { color: #9CDCFE; }
+  .language-css .token.function { color: #DCDCAA; }
+  .language-css .token.string   { color: #CE9178; }
+  .language-javascript .token.template-string { color: #CE9178; }
+
+  #preview {
+    flex: 1;
+    border: none;
+    background: #000;
+  }
+
+  /* ---- MOBILE: preview em cima (foco visual), editor embaixo ---- */
+  @media (max-width: 700px) {
+    #main { flex-direction: column-reverse; }
+    #editor-panel  { width: 100%; height: 35%; border-right: none; border-top: 1px solid #1a1a1a; }
+    #preview-panel { width: 100%; height: 65%; }
+  }
+
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Celular Coral — LAB 3</h1>
+  <button class="hbtn" id="run-btn">▶ RUN</button>
+  <button class="hbtn" id="stop-btn">■ STOP</button>
+  <span id="status">—</span>
+</div>
+
+<div id="console-log"></div>
+
+<div id="main">
+  <div id="editor-panel">
+    <div class="panel-label">CÓDIGO (HTML COMPLETO)</div>
+    <div id="editor-wrap">
+      <div id="gutter"><div id="gutter-inner"></div></div>
+      <pre id="highlight" aria-hidden="true"><code class="language-html"></code></pre>
+      <textarea id="editor" spellcheck="false" autocorrect="off" autocapitalize="off"><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #000; color: #ccc;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+  }
+  .player {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: contain;
+    opacity: 0;
+  }
+  #dark {
+    position: absolute; inset: 0;
+    background: #000; opacity: 0;
+    pointer-events: none;
+  }
+  #info {
+    position: absolute; bottom: 8px; left: 10px; right: 10px;
+    font-size: 11px; color: #777; letter-spacing: 1px;
+    display: flex; justify-content: space-between;
+    pointer-events: none;
+  }
+  #muted-badge {
+    position: absolute; top: 8px; right: 10px;
+    background: rgba(200, 60, 60, 0.85); color: #fff;
+    padding: 4px 8px; border-radius: 4px;
+    font-size: 11px; letter-spacing: 1px;
+    display: none; pointer-events: none;
+  }
+  .overlay {
+    position: absolute; inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+    color: #fff; cursor: pointer; z-index: 99;
+    font-family: 'Courier New', monospace;
+    user-select: none; -webkit-user-select: none;
+  }
+  .overlay.show { display: flex; }
+  .overlay .big   { font-size: 22px; letter-spacing: 4px; }
+  .overlay .small { font-size: 11px; color: #888; letter-spacing: 2px; text-align: center; padding: 0 20px; }
+  #overlay-play .big { color: #7c7; }
+</style>
+</head>
+<body>
+
+<video id="player-a" class="player" playsinline preload="none" src="V3_keyframes.mp4"></video>
+<video id="player-b" class="player" playsinline preload="none" src="V3_keyframes.mp4"></video>
+<div id="dark"></div>
+<div id="muted-badge">🔇 SEM SOM (autoplay mobile)</div>
+<div id="overlay-prepare" class="overlay">
+  <div class="big">▶ PREPARAR</div>
+  <div class="small">baixa o vídeo e prepara o áudio</div>
+</div>
+<div id="overlay-play" class="overlay">
+  <div class="big">▶ PLAY</div>
+  <div class="small">aguarde o sinal e toque junto com o grupo</div>
+</div>
+<div id="info">
+  <span id="now"></span>
+  <span id="timer"></span>
+</div>
+
+<script>
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║                                                                  ║
+// ║   ▼▼▼   ÁREA DE EDIÇÃO   ▼▼▼                                     ║
+// ║                                                                  ║
+// ║   Aqui ficam os FRAGMENTOS do video e a PARTITURA (5 seções).    ║
+// ║   Edite à vontade. A implementação está mais abaixo.             ║
+// ║                                                                  ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+
+// ════ FRAGMENTOS DO VIDEO ════════════════════════════════════════════
+// cada item: id, start (s), end (s).
+// dá pra adicionar outras propriedades (fadeIn, alpha, dark, mute, etc.)
+// que viram default pra qualquer { id: n } usado na partitura.
+// ex: { id: 9, start: 68, end: 72, dark: true } → todo { id: 9 } já vem dark.
+
+const FRAGMENTS = [
+  { id: 'disc', start: 155.4, end: 155.6 },
+];
+
+
+// ver o array inteiro
+console.log(FRAGMENTS)
+
+// ver só os ids
+console.log(FRAGMENTS.map(f => f.id))
+
+// ver quantos fragmentos
+console.log('total:', FRAGMENTS.length)
+
+// ver duração de um fragmento
+const disc = FRAGMENTS.find(f => f.id === 'disc')
+console.log('duração disc:', disc.end - disc.start)
+
+
+// ════ PARTITURA — 5 SEÇÕES ═══════════════════════════════════════════
+// tocadas em ordem: a → b → c → d → e
+// cada seção é um array de eventos. todo evento precisa de { id: n }.
+//
+//   { id: 1 }                    → toca o fragmento 1 inteiro
+//   { id: 1, fadeIn: 2 }         → fragmento 1 com fadeIn de 2s
+//   { id: 5, times: 3 }          → repete fragmento 5 três vezes
+//   { id: 5, dur: 2 }            → só os primeiros 2s do fragmento 5
+//
+// qualquer propriedade (start, end, alpha, dark, etc.) pode ser sobrescrita.
+// o evento sempre ganha sobre os defaults do FRAGMENTS.
+//
+// SEGUNDO ARGUMENTO (opcional) = TEMPO LIMITE da seção em segundos.
+// quando o limite é atingido, espera o video atual terminar e pula
+// pra próxima seção. sem segundo arg → toca todos os eventos.
+
+
+// PARTE A (INÍCIO / DISC):
+run_a([
+  { id: 'disc', grain: { anchor: 'start', expand: 10, step: 0.1 } },
+], 20) // >>-----> DURAÇÃO do TIMER de A em segundos
+
+
+
+// PARTE B (VOGAIS):
+run_b([
+
+], Math.random() * 20 + 40)  // >>-----> DURAÇÃO ALEATORIA do TIMER de B em segundos
+
+
+
+// PARTE C (PALAVRAS):
+run_c([
+
+])         // TIMER SEM LIMITE — toca tudo
+
+
+
+// PARTE D (SILÊNCIOS):
+run_d([
+
+], 25) // >>-----> DURAÇÃO do TIMER de D em segundos
+
+
+
+// PARTE E (FIM)
+run_e([
+
+]) // TIMER SEM LIMITE — toca tudo
+
+
+// ── REFERÊNCIA RÁPIDA DE COMANDOS ───────────────────────────────────
+//
+// TEMPO LIMITE POR SEÇÃO (segundo argumento de run_*):
+// run_a([ ... ], 30)                  limite de 30s na seção a
+// run_b([ ... ], Math.random()*20+40) limite aleatório entre 40 e 60s
+// run_c([ ... ])                      sem limite (toca tudo)
+//
+// quando o limite é atingido, espera o video atual terminar
+// (pode estourar alguns segundos) e pula pra próxima seção.
+// pelo menos 1 evento sempre toca, mesmo se o limite for menor.
+//
+// dá pra declarar como variável no topo se preferir:
+//   const TEMPO_A = Math.floor(Math.random() * 20) + 20   // 20 a 39s
+//   run_a([ ... ], TEMPO_A)
+//
+// BÁSICO:
+// { id: 1 }                           toca o fragmento 1 inteiro
+// { id: 1, dur: 2 }                   só os primeiros 2s (trunca)
+//
+// LOOP:
+// { id: 2, times: 3 }                 repete 3 vezes
+//
+// SÍNTESE GRANULAR:
+// { id: 5, grain: { anchor: 'start', expand: 4 } }      início fixo, grão cresce
+// { id: 5, grain: { anchor: 'start', contract: 4 } }    início fixo, grão encolhe
+// { id: 5, grain: { anchor: 'end',   expand: 4 } }      fim fixo, grão cresce
+// { id: 5, grain: { anchor: 'end',   contract: 4 } }    fim fixo, grão encolhe
+// { id: 5, grain: { anchor: 'start', expand: 4, step: 1 } }   step em segundos
+//
+// FADES:
+// { id: 1, fadeIn: 2 }                fade in de 2s
+// { id: 1, fadeOut: 3 }               fade out de 3s
+//
+// AUDIO / VISUAL:
+// { id: 1, volume: 0.5 }              volume 0–1
+// { id: 1, mute: true }               video sem som
+// { id: 1, alpha: 0.3 }               transparência do video 0–1
+// { id: 1, dark: true }               som sem video (tela preta)
+// { id: 1, speed: 1.5 }               velocidade (afeta pitch também)
+//
+// DEFAULTS POR FRAGMENTO:
+// se quiser que o fragmento sempre toque com algo, põe na lista FRAGMENTS:
+//   { id: 9, start: 68, end: 72, dark: true }
+// daí qualquer { id: 9 } na partitura já vem com dark: true.
+// pra anular pontualmente: { id: 9, dark: false }
+//
+// ALEATORIEDADE — Math.random()
+//
+// Math.random() sorteia um decimal entre 0 (incluído) e 1 (excluído).
+// cada RUN re-roda o script, então cada execução gera valores novos.
+//
+// PADRÃO PARA QUALQUER INTERVALO (inteiro ou decimal):
+//
+//   Math.random() * (max - min) + min
+//
+// Math.random() * 7 + 1                  decimal entre 1 e 8
+// Math.random() * (1.5 - 0.5) + 0.5      decimal entre 0.5 e 1.5
+// Math.random() * (3.75 - 0.25) + 0.25   decimal entre 0.25 e 3.75
+//
+// PARA INTEIROS — envolve com Math.floor():
+//
+//   Math.floor(Math.random() * (max - min + 1)) + min
+//
+// Math.floor(Math.random() * 8) + 1      inteiro de 1 a 8
+// Math.floor(Math.random() * 3) + 2      inteiro de 2 a 4
+//
+// USO NA PARTITURA:
+//
+//   { id: 1, fadeIn: Math.random() * 2 + 1 }              fadeIn entre 1 e 3
+//   { id: 5, times: Math.floor(Math.random() * 3) + 2 }   2, 3 ou 4 loops
+//   { id: 7, dark: Math.random() < 0.5 }                  50% de chance dark
+//
+// SORTEAR DE UMA LISTA NÃO SEQUENCIAL:
+//
+//   { id: [2, 5, 9][Math.floor(Math.random() * 3)] }      sorteia 2, 5 ou 9
+//
+// (acima: o array [2, 5, 9] é indexado por um inteiro 0, 1 ou 2,
+//  e Math.floor(Math.random() * 3) sorteia esse índice)
+
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║                                                                  ║
+// ║   ▲▲▲    FIM DA ÁREA DE EDIÇÃO    ▲▲▲                            ║
+// ║                                                                  ║
+// ║   Tudo abaixo é a implementação do player.                       ║
+// ║                                                                  ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+
+// ── coleta dos eventos das 5 seções ─────────────────────────────────
+// cada seção vira { name, events, limit } em window._sections.
+// limit (em segundos) é opcional — undefined = toca todos os eventos.
+function run_a(score, limit) { (window._sections ||= []).push({ name: 'A', events: expandScore(score), limit }); }
+function run_b(score, limit) { (window._sections ||= []).push({ name: 'B', events: expandScore(score), limit }); }
+function run_c(score, limit) { (window._sections ||= []).push({ name: 'C', events: expandScore(score), limit }); }
+function run_d(score, limit) { (window._sections ||= []).push({ name: 'D', events: expandScore(score), limit }); }
+function run_e(score, limit) { (window._sections ||= []).push({ name: 'E', events: expandScore(score), limit }); }
+
+// ── helpers de expansão ─────────────────────────────────────────────
+function expandScore(score) {
+  const events = [];
+  for (const item of [].concat(score)) events.push(...expandEvent(item));
+  return events;
+}
+
+function expandEvent(ev) {
+  // todo evento precisa de { id: n }
+  if (ev.id === undefined) {
+    throw new Error('evento sem id — todo evento precisa de { id: n }: ' + JSON.stringify(ev));
+  }
+  const fr = FRAGMENTS.find(x => x.id === ev.id);
+  if (!fr) throw new Error('fragmento id:' + ev.id + ' não encontrado em FRAGMENTS');
+
+  // mescla simples: defaults do fragmento + evento sobrescreve tudo
+  const { id: _ignored, ...frDefaults } = fr;
+  ev = { ...frDefaults, ...ev };
+
+  // dur (se presente) recalcula end a partir do start atual
+  if (ev.dur !== undefined) ev.end = ev.start + ev.dur;
+  if (ev.end === undefined) throw new Error('id:' + ev.id + ' sem end nem dur');
+  if (ev.end - ev.start <= 0) {
+    throw new Error('duração ≤ 0 em id:' + ev.id + ' (start=' + ev.start + ', end=' + ev.end + ')');
+  }
+  const evs  = [];
+  const base = ev.end - ev.start;
+
+  if (ev.grain !== undefined) {
+    const g         = ev.grain;
+    const n         = g.expand ?? g.contract;
+    const step      = g.step || 0.5;
+    const isExpand  = g.expand !== undefined;
+    const anchorEnd = g.anchor === 'end';
+    for (let i = 0; i < n; i++) {
+      const grainDur = Math.max(0.01, base + (isExpand ? step * i : -step * i));
+      const s = anchorEnd ? ev.end - grainDur : ev.start;
+      const e = anchorEnd ? ev.end             : ev.start + grainDur;
+      evs.push(normalize({ ...ev, start: s, end: e,
+        fadeIn:  i === 0     ? (ev.fadeIn  || 0) : 0,
+        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 }));
+    }
+  } else {
+    const n = ev.times || 1;
+    for (let i = 0; i < n; i++) {
+      evs.push(normalize({ ...ev,
+        fadeIn:  i === 0     ? (ev.fadeIn  || 0) : 0,
+        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 }));
+    }
+  }
+  return evs;
+}
+
+function normalize(ev) {
+  const end = ev.end ?? (ev.start + (ev.dur || 0));
+  return {
+    ...ev,
+    end,
+    volume:  ev.mute ? 0 : (ev.volume ?? 1),
+    alpha:   ev.dark ? 0 : (ev.alpha  ?? 1),
+    speed:   ev.speed  || 1,
+    fadeIn:  ev.fadeIn  || 0,
+    fadeOut: ev.fadeOut || 0,
+    label:   Number(ev.start).toFixed(1) + 's  ' + Number(end - ev.start).toFixed(1) + 's',
+  };
+}
+
+// ── player ──────────────────────────────────────────────────────────
+// USE_DOUBLE_BUFFER=true usa dois <video> alternando: enquanto activeVid toca,
+// nextVid pre-seeka pro próximo evento. Quando active termina, swap → o pre-seekado
+// já está pronto, eliminando a travadinha de ~360ms (decoder pipeline reset iOS).
+// Risco: iOS limita 1 decoder ativo. Se pre-seek falhar, swap mostra frame errado
+// e fica pior que single. Pra reverter pro modo seguro, troque pra false.
+const USE_DOUBLE_BUFFER = false;
+
+let ps = null;
+let vidA, vidB, activeVid, nextVid;
+
+function play() {
+  const sections = window._sections || [];
+  const totalEvents = sections.reduce((n, s) => n + s.events.length, 0);
+  if (totalEvents === 0) return;
+
+  vidA = document.getElementById('player-a');
+  vidB = document.getElementById('player-b');
+  activeVid = vidA;
+  nextVid = USE_DOUBLE_BUFFER ? vidB : vidA;
+
+  ps = {
+    sections,
+    sectionIdx: 0, eventIdx: 0,
+    totalEvents, eventsPlayed: 0,
+    currentSection: null, currentEvent: null,
+    alive: true, fadeIv: null, stepTo: null,
+    t0: 0, sectionT0: 0, timerIv: null,
+  };
+
+  if (IS_MOBILE) showPrepareOverlay();
+  else autoLoadAndStart();
+}
+
+const IS_MOBILE = 'ontouchstart' in window || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+function loadVideosAsBlob() {
+  // fetch único, src compartilhada entre os dois <video> (mesmo blob em RAM).
+  const src = vidA.getAttribute('src');
+  return fetch(src)
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      vidA.src = url;
+      const proms = [new Promise(res => { vidA.addEventListener('canplay', res, { once: true }); vidA.load(); })];
+      if (USE_DOUBLE_BUFFER) {
+        vidB.src = url;
+        proms.push(new Promise(res => { vidB.addEventListener('canplay', res, { once: true }); vidB.load(); }));
+      }
+      return Promise.all(proms);
+    });
+}
+
+function autoLoadAndStart() {
+  document.getElementById('now').textContent = 'baixando vídeo…';
+  loadVideosAsBlob().then(() => {
+    document.getElementById('now').textContent = '';
+    // audio unlock em ambos vídeos (síncrono no contexto do RUN do parent)
+    vidA.style.visibility = 'hidden';
+    if (USE_DOUBLE_BUFFER) vidB.style.visibility = 'hidden';
+    const proms = [vidA.play().then(() => vidA.pause())];
+    if (USE_DOUBLE_BUFFER) proms.push(vidB.play().then(() => vidB.pause()));
+    Promise.all(proms).then(() => startPlayback())
+      .catch(() => { vidA.style.visibility = 'visible'; if (USE_DOUBLE_BUFFER) vidB.style.visibility = 'visible'; showPlayOverlay(); });
+  }).catch(e => { document.getElementById('now').textContent = 'erro: ' + e.message; });
+}
+
+function showPrepareOverlay() {
+  const prep = document.getElementById('overlay-prepare');
+  prep.classList.add('show');
+  prep.addEventListener('click', () => {
+    prep.querySelector('.big').textContent = 'BAIXANDO…';
+    prep.querySelector('.small').textContent = 'aguarde até liberar o PLAY';
+    loadVideosAsBlob()
+      .then(() => { prep.classList.remove('show'); showPlayOverlay(); })
+      .catch(e => {
+        prep.querySelector('.big').textContent = 'ERRO';
+        prep.querySelector('.small').textContent = e.message;
+      });
+  }, { once: true });
+}
+
+function showPlayOverlay() {
+  const playOv = document.getElementById('overlay-play');
+  playOv.classList.add('show');
+  playOv.addEventListener('click', () => {
+    // audio unlock em AMBOS vídeos (síncrono no click handler — preserva gesture)
+    vidA.style.visibility = 'hidden';
+    if (USE_DOUBLE_BUFFER) vidB.style.visibility = 'hidden';
+    const proms = [vidA.play().then(() => vidA.pause())];
+    if (USE_DOUBLE_BUFFER) proms.push(vidB.play().then(() => vidB.pause()));
+    Promise.all(proms).then(() => { playOv.classList.remove('show'); startPlayback(); })
+      .catch(() => {
+        // último recurso: muted
+        vidA.muted = true; if (USE_DOUBLE_BUFFER) vidB.muted = true;
+        vidA.style.visibility = 'visible'; if (USE_DOUBLE_BUFFER) vidB.style.visibility = 'visible';
+        document.getElementById('muted-badge').style.display = 'block';
+        playOv.classList.remove('show');
+        startPlayback();
+      });
+  }, { once: true });
+}
+
+function startPlayback() {
+  ps.t0 = performance.now();
+  ps.sectionT0 = ps.t0;
+  startTimer();
+  playNext();
+}
+
+// peek sem avançar ps — pra pre-seekar o próximo evento
+function peekNextEvent() {
+  let secIdx = ps.sectionIdx, evIdx = ps.eventIdx;
+  while (secIdx < ps.sections.length) {
+    const sec = ps.sections[secIdx];
+    if (evIdx >= sec.events.length) { secIdx++; evIdx = 0; continue; }
+    return sec.events[evIdx];
+  }
+  return null;
+}
+
+// Warm-up: 500ms antes do active terminar, dispara nextVid.play() em mute pra
+// "esquentar" o decoder. iOS Safari leva ~470ms entre play() e 1º frame, então
+// chamando esse tempo antes, o decoder do nextVid já estará warm na hora do swap.
+// Pre-seek vai pra peek.start - WARMUP_LEAD pra compensar o avanço durante warm-up.
+const WARMUP_LEAD = 0.5;
+
+function preSeekUpcoming() {
+  if (!USE_DOUBLE_BUFFER || !ps || !ps.alive) return;
+  const peek = peekNextEvent();
+  if (!peek) return;
+  nextVid.muted = true;
+  nextVid.volume = 0;
+  nextVid.currentTime = Math.max(0, peek.start - WARMUP_LEAD);
+}
+
+function swapVids() {
+  // antigo active: pausa, silencia, oculta
+  activeVid.pause();
+  activeVid.volume = 0;
+  activeVid.style.opacity = '0';
+  // troca pointers
+  [activeVid, nextVid] = [nextVid, activeVid];
+  // novo active (era nextVid warmed up): unmute
+  activeVid.muted = false;
+}
+
+// avança seção quando esgota eventos OU quando estoura o limite.
+// limite só pula seção depois de pelo menos 1 evento ter tocado nela.
+function nextEvent() {
+  while (ps.sectionIdx < ps.sections.length) {
+    const sec = ps.sections[ps.sectionIdx];
+    const elapsedInSec = (performance.now() - ps.sectionT0) / 1000;
+    const limitHit = sec.limit !== undefined && ps.eventIdx > 0 && elapsedInSec >= sec.limit;
+
+    if (limitHit || ps.eventIdx >= sec.events.length) {
+      ps.sectionIdx++;
+      ps.eventIdx = 0;
+      ps.sectionT0 = performance.now();
+      continue;
+    }
+
+    const ev = sec.events[ps.eventIdx++];
+    ps.eventsPlayed++;
+    ps.currentSection = sec;
+    ps.currentEvent = ev;
+    return { section: sec, event: ev };
+  }
+  return null;
+}
+
+function playNext() {
+  if (!ps || !ps.alive) return;
+
+  const next = nextEvent();
+  if (!next) { finish(); return; }
+  const { section, event: ev } = next;
+
+  const useSwap = USE_DOUBLE_BUFFER && ps.eventsPlayed > 1;
+  if (useSwap) swapVids();
+
+  const vid = activeVid;
+  const ovl = document.getElementById('dark');
+
+  vid.playbackRate  = ev.speed;
+  vid.volume        = ev.volume;
+  vid.style.opacity = String(ev.alpha);
+  ovl.style.opacity = ev.dark ? '1' : '0';
+
+  if (ev.fadeIn > 0) {
+    vid.style.opacity = '0';
+    vid.volume = 0;
+    const t0 = Date.now(), va = ev.alpha, vv = ev.volume;
+    if (ps.fadeIv) clearInterval(ps.fadeIv);
+    ps.fadeIv = setInterval(() => {
+      const t = Math.min(1, (Date.now() - t0) / 1000 / ev.fadeIn);
+      if (!ev.dark) vid.style.opacity = String(t * va);
+      vid.volume = t * vv;
+      if (t >= 1) { clearInterval(ps.fadeIv); ps.fadeIv = null; }
+    }, 30);
+  }
+
+  document.getElementById('now').textContent =
+    '[' + section.name + ']  ' + ps.eventsPlayed + ' / ' + ps.totalEvents + '  ' + ev.label;
+
+  if (useSwap) {
+    // SWAP: vid já está pre-seekado pelo evento anterior. Só play.
+    vid.style.visibility = 'visible';
+    vid.play().catch(() => {});
+    setTimeout(preSeekUpcoming, 100);
+    startCheckEnd(vid, ev);
+  } else {
+    // SEEK normal: primeiro evento ou single buffer
+    let done = false;
+    const onSeeked = () => {
+      if (done) return; done = true;
+      vid.removeEventListener('seeked', onSeeked);
+      if (!ps || !ps.alive) return;
+
+      vid.style.visibility = 'visible';
+      if (vid.paused) vid.play().catch(() => {});
+      setTimeout(preSeekUpcoming, 100);
+      startCheckEnd(vid, ev);
+    };
+    vid.addEventListener('seeked', onSeeked);
+    vid.currentTime = ev.start;
+    setTimeout(() => {
+      if (!done) { done = true; vid.removeEventListener('seeked', onSeeked); onSeeked(); }
+    }, 1500);
+  }
+}
+
+function startCheckEnd(vid, ev) {
+  // checa fim do evento a cada frame renderizado pelo decoder.
+  // 'timeupdate' dispara a cada ~250ms — granularidade ruim pra grãos curtos.
+  let endDone = false;
+  let warmedUp = false;
+  const checkEnd = () => {
+    if (endDone || !ps || !ps.alive) return;
+
+    // warm-up nextVid quando faltar < WARMUP_LEAD pro fim
+    if (USE_DOUBLE_BUFFER && !warmedUp && nextVid !== vid && (ev.end - vid.currentTime) < WARMUP_LEAD) {
+      warmedUp = true;
+      nextVid.play().catch(() => {});
+    }
+
+    if (vid.currentTime >= ev.end) {
+      endDone = true;
+      if (ps.stepTo) clearTimeout(ps.stepTo);
+
+      if (ev.fadeOut > 0) {
+        vid.pause();
+        const o0 = parseFloat(vid.style.opacity) || 1, v0 = vid.volume, t0 = Date.now();
+        if (ps.fadeIv) clearInterval(ps.fadeIv);
+        ps.fadeIv = setInterval(() => {
+          const t = Math.min(1, (Date.now() - t0) / 1000 / ev.fadeOut);
+          vid.style.opacity = String(o0 * (1 - t));
+          vid.volume = v0 * (1 - t);
+          if (t >= 1) {
+            clearInterval(ps.fadeIv); ps.fadeIv = null;
+            playNext();
+          }
+        }, 30);
+      } else {
+        playNext();
+      }
+      return;
+    }
+    if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(checkEnd);
+    else requestAnimationFrame(checkEnd);
+  };
+  if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(checkEnd);
+  else requestAnimationFrame(checkEnd);
+
+  ps.stepTo = setTimeout(() => {
+    endDone = true;
+    playNext();
+  }, ((ev.end - ev.start) / ev.speed + 2) * 1000);
+}
+
+function finish() {
+  const vid = activeVid || document.getElementById('player-a');
+  const o0 = parseFloat(vid.style.opacity) || 1, v0 = vid.volume, t0 = Date.now();
+  const fi = setInterval(() => {
+    const t = Math.min(1, (Date.now() - t0) / 1000 / 1.5);
+    vid.style.opacity = String(o0 * (1 - t));
+    vid.volume = v0 * (1 - t);
+    if (t >= 1) {
+      clearInterval(fi);
+      vid.pause();
+      if (USE_DOUBLE_BUFFER && nextVid) nextVid.pause();
+      vid.style.opacity = '0';
+    }
+  }, 30);
+  document.getElementById('now').textContent = 'fim';
+  if (ps) ps.alive = false;
+  stopTimer();
+}
+
+// ── timer ───────────────────────────────────────────────────────────
+// estima total: por seção, soma natural; se tem limite, usa min(limite, natural).
+// na prática o tempo real fica entre limite e limite+um_evento (espera
+// vídeo atual terminar antes de pular). exibição é só estimativa.
+function estimateTotal(sections) {
+  return sections.reduce((sum, sec) => {
+    const natural = sec.events.reduce((s, e) => s + (e.end - e.start) / e.speed, 0);
+    return sum + (sec.limit !== undefined ? Math.min(sec.limit, natural) : natural);
+  }, 0);
+}
+
+function startTimer() {
+  const total = estimateTotal(ps.sections);
+  const tEl = document.getElementById('timer');
+  ps.timerIv = setInterval(() => {
+    if (!ps || !ps.alive) { stopTimer(); return; }
+    const elapsed   = (performance.now() - ps.t0) / 1000;
+    const sec       = ps.currentSection;
+    let secStr      = '';
+    if (sec) {
+      const secElapsed = (performance.now() - ps.sectionT0) / 1000;
+      secStr = fmtTime(secElapsed);
+      if (sec.limit !== undefined) secStr += ' / ' + fmtTime(sec.limit);
+      secStr += '  ·  ';
+    }
+    tEl.textContent = secStr + fmtTime(elapsed) + ' / ' + fmtTime(total);
+  }, 100);
+}
+
+function stopTimer() {
+  if (ps && ps.timerIv) { clearInterval(ps.timerIv); ps.timerIv = null; }
+}
+
+function fmtTime(s) {
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return m + ':' + (r < 10 ? '0' : '') + r;
+}
+
+// ── auto-start ──────────────────────────────────────────────────────
+play();
+
+</script>
+</body>
+</html></textarea>
+    </div>
+  </div>
+
+  <div id="preview-panel">
+    <div class="panel-label">PLAYER</div>
+    <iframe id="preview"></iframe>
+  </div>
+</div>
+
+<!-- Prism.js (core + markup + css + clike + javascript bundle) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+
+<script>
+const editor    = document.getElementById('editor');
+const highlight = document.querySelector('#highlight code');
+const frame     = document.getElementById('preview');
+const status    = document.getElementById('status');
+const runBtn    = document.getElementById('run-btn');
+const consoleEl = document.getElementById('console-log');
+
+function setStatus(msg, cls) {
+  status.textContent = msg;
+  status.className = cls || '';
+}
+function clog(msg, cls) {
+  if (msg === '') { consoleEl.innerHTML = ''; return; }
+  const line = document.createElement('div');
+  line.textContent = msg;
+  if (cls) line.className = cls;
+  consoleEl.appendChild(line);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+// bootstrap injetado no topo do srcdoc — roda antes do código do usuário,
+// captura console.log/erros e manda pro wrapper via postMessage
+const BOOTSTRAP = `<script>(function(){
+  function fmt(a){
+    if (a instanceof Error) return a.message;
+    if (typeof a === 'object' && a !== null) {
+      try { return JSON.stringify(a); } catch(e) { return String(a); }
+    }
+    return String(a);
+  }
+  window.addEventListener('error', function(e){
+    parent.postMessage({_lab:1, type:'err', msg:e.message, line:e.lineno}, '*');
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var m = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
+    parent.postMessage({_lab:1, type:'err', msg:m}, '*');
+  });
+  var orig = console.log.bind(console);
+  console.log = function(){
+    var args = Array.prototype.slice.call(arguments).map(fmt);
+    parent.postMessage({_lab:1, type:'log', text:args.join(' ')}, '*');
+    orig.apply(console, arguments);
+  };
+})();<\/script>`;
+
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d._lab !== 1) return;
+  if (d.type === 'log') clog(d.text);
+  else if (d.type === 'err') {
+    setStatus('erro', 'error');
+    clog(d.msg + (d.line ? ' (linha ' + d.line + ')' : ''), 'err');
+  }
+});
+
+const gutterInner = document.getElementById('gutter-inner');
+
+function updateHighlight() {
+  let v = editor.value;
+  // textarea engole o último \n do pre — adicionar espaço pra não saltar linha
+  if (v.endsWith('\n')) v += ' ';
+  highlight.textContent = v;
+  if (window.Prism) Prism.highlightElement(highlight);
+  updateGutter();
+}
+
+function updateGutter() {
+  const lines = editor.value.split('\n').length;
+  let s = '';
+  for (let i = 1; i <= lines; i++) s += i + '\n';
+  gutterInner.textContent = s;
+}
+
+function syncScroll() {
+  const pre = document.getElementById('highlight');
+  pre.scrollTop  = editor.scrollTop;
+  pre.scrollLeft = editor.scrollLeft;
+  gutterInner.style.transform = 'translateY(' + (-editor.scrollTop) + 'px)';
+}
+
+function runCode() {
+  clog('');
+  frame.srcdoc = BOOTSTRAP + editor.value;
+  setStatus('rodando', 'playing');
+  runBtn.classList.add('active');
+}
+
+function stopCode() {
+  frame.srcdoc = '<html><body style="background:#000;margin:0"></body></html>';
+  setStatus('parado', '');
+  clog('');
+  runBtn.classList.remove('active');
+}
+
+runBtn.addEventListener('click', runCode);
+document.getElementById('stop-btn').addEventListener('click', stopCode);
+
+// live highlight + scroll sync
+editor.addEventListener('input',  updateHighlight);
+editor.addEventListener('scroll', syncScroll);
+
+// Cmd/Ctrl + Enter → RUN
+editor.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    runCode();
+  }
+  // Tab inserts 2 spaces instead of changing focus
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = editor.selectionStart, end = editor.selectionEnd;
+    editor.value = editor.value.slice(0, start) + '  ' + editor.value.slice(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+    updateHighlight();
+  }
+});
+
+// run highlight after Prism loads (script tag is sync, mas defensivo)
+window.addEventListener('load', updateHighlight);
+updateHighlight();
+</script>
+
+</body>
+</html>
