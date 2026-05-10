@@ -319,8 +319,13 @@ console.log('duração disc:', disc.end - disc.start)
 // o evento sempre ganha sobre os defaults do FRAGMENTS.
 //
 // SEGUNDO ARGUMENTO (opcional) = TEMPO LIMITE da seção em segundos.
-// quando o limite é atingido, espera o video atual terminar e pula
-// pra próxima seção. sem segundo arg → toca todos os eventos.
+// COM limite: a seção roda em LOOP até o limite estourar. Se os eventos
+//   acabam antes, volta pro início e toca de novo, até o tempo dar.
+// SEM limite: toca a lista uma vez e segue.
+//
+// Pra cada volta do loop sortear valores aleatórios NOVOS, embrulha a
+// lista numa função: run_a(() => [...], 20). Sem o () =>, o sorteio é
+// feito uma vez só, e cada volta repete os mesmos valores.
 
 
 // PARTE A (INÍCIO / DISC):
@@ -362,13 +367,29 @@ run_e([
 // TEMPO LIMITE POR SEÇÃO (segundo argumento de run_*):
 // run_a([ ... ], 30)                  limite de 30s na seção a
 // run_b([ ... ], Math.random()*20+40) limite aleatório entre 40 e 60s
-// run_c([ ... ])                      sem limite (toca tudo)
+// run_c([ ... ])                      sem limite (toca tudo uma vez)
 //
-// quando o limite é atingido, espera o video atual terminar
-// (pode estourar alguns segundos) e pula pra próxima seção.
-// pelo menos 1 evento sempre toca, mesmo se o limite for menor.
+// COM LIMITE → LOOP: a seção roda em loop até o limite estourar.
+//   Se a lista de eventos acaba antes (ex: 5s de eventos com limite 60s),
+//   volta pro começo e toca de novo, até dar o tempo.
+// SEM LIMITE: toca a lista uma vez e segue.
 //
-// dá pra declarar como variável no topo se preferir:
+// Quando o limite estoura, espera o video atual terminar (pode passar
+// alguns segundos) e pula pra próxima seção.
+// Pelo menos 1 evento sempre toca, mesmo se o limite for muito curto.
+//
+// LOOP COM SORTEIO NOVO A CADA VOLTA:
+// Por padrão o loop repete os MESMOS eventos. Pra sortear valores novos
+// a cada volta, embrulha a lista numa função:
+//
+//   run_b(() => [
+//     { id: 'disc', start: Math.random() * 5 + 150 }
+//   ], 60)
+//
+// O `() =>` faz o sorteio rodar A CADA VOLTA do loop.
+// Sem `() =>`, o Math.random() roda só uma vez (na primeira passada).
+//
+// Dá pra declarar como variável no topo se preferir:
 //   const TEMPO_A = Math.floor(Math.random() * 20) + 20   // 20 a 39s
 //   run_a([ ... ], TEMPO_A)
 //
@@ -447,18 +468,22 @@ run_e([
 
 
 // ── coleta dos eventos das 5 seções ─────────────────────────────────
-// cada seção vira { name, events, limit } em window._sections.
-// limit (em segundos) é opcional — undefined = toca todos os eventos.
-function run_a(score, limit) { (window._sections ||= []).push({ name: 'A', events: expandScore(score), limit }); }
-function run_b(score, limit) { (window._sections ||= []).push({ name: 'B', events: expandScore(score), limit }); }
-function run_c(score, limit) { (window._sections ||= []).push({ name: 'C', events: expandScore(score), limit }); }
-function run_d(score, limit) { (window._sections ||= []).push({ name: 'D', events: expandScore(score), limit }); }
-function run_e(score, limit) { (window._sections ||= []).push({ name: 'E', events: expandScore(score), limit }); }
+// cada seção vira { name, score, events, limit } em window._sections.
+// limit (em segundos) é opcional — undefined = toca todos os eventos uma vez.
+// score pode ser array OU função () => array. Se for função, é re-chamada
+// a cada volta do loop (quando há limit), regenerando os eventos com novos
+// sorteios de Math.random().
+function run_a(score, limit) { (window._sections ||= []).push({ name: 'A', score, events: expandScore(score), limit }); }
+function run_b(score, limit) { (window._sections ||= []).push({ name: 'B', score, events: expandScore(score), limit }); }
+function run_c(score, limit) { (window._sections ||= []).push({ name: 'C', score, events: expandScore(score), limit }); }
+function run_d(score, limit) { (window._sections ||= []).push({ name: 'D', score, events: expandScore(score), limit }); }
+function run_e(score, limit) { (window._sections ||= []).push({ name: 'E', score, events: expandScore(score), limit }); }
 
 // ── helpers de expansão ─────────────────────────────────────────────
 function expandScore(score) {
+  const arr = typeof score === 'function' ? score() : score;
   const events = [];
-  for (const item of [].concat(score)) events.push(...expandEvent(item));
+  for (const item of [].concat(arr)) events.push(...expandEvent(item));
   return events;
 }
 
@@ -546,7 +571,7 @@ function play() {
   ps = {
     sections,
     sectionIdx: 0, eventIdx: 0,
-    totalEvents, eventsPlayed: 0,
+    totalEvents, eventsPlayed: 0, eventsPlayedInSection: 0,
     currentSection: null, currentEvent: null,
     alive: true, fadeIv: null, stepTo: null,
     t0: 0, sectionT0: 0, timerIv: null,
@@ -669,23 +694,50 @@ function swapVids() {
   activeVid.muted = false;
 }
 
-// avança seção quando esgota eventos OU quando estoura o limite.
-// limite só pula seção depois de pelo menos 1 evento ter tocado nela.
+// avança evento; com limit, a seção roda em LOOP até o limit estourar.
+// quando os eventos acabam antes do limit, regenera (re-chama score se for
+// função) e volta pro início. limite só pula seção depois de pelo menos
+// 1 evento ter tocado nela.
 function nextEvent() {
   while (ps.sectionIdx < ps.sections.length) {
     const sec = ps.sections[ps.sectionIdx];
     const elapsedInSec = (performance.now() - ps.sectionT0) / 1000;
-    const limitHit = sec.limit !== undefined && ps.eventIdx > 0 && elapsedInSec >= sec.limit;
+    const hasLimit = sec.limit !== undefined;
+    const limitHit = hasLimit && elapsedInSec >= sec.limit;
+    const playedHere = ps.eventsPlayedInSection || 0;
 
-    if (limitHit || ps.eventIdx >= sec.events.length) {
+    // limit estourou no meio da seção — pula (garante 1 evento mínimo)
+    if (limitHit && playedHere > 0) {
       ps.sectionIdx++;
       ps.eventIdx = 0;
+      ps.eventsPlayedInSection = 0;
+      ps.sectionT0 = performance.now();
+      continue;
+    }
+
+    // acabaram os eventos da seção
+    if (ps.eventIdx >= sec.events.length) {
+      // com limit E ainda há tempo: regenera (re-chama função se for) e loopa
+      if (hasLimit && !limitHit) {
+        const regen = expandScore(sec.score);
+        // se a regeneração veio vazia, pula pra não entrar em loop infinito
+        if (regen.length > 0) {
+          sec.events = regen;
+          ps.eventIdx = 0;
+          continue;
+        }
+      }
+      // sem limit, já estourou, ou regeneração vazia: vai pra próxima seção
+      ps.sectionIdx++;
+      ps.eventIdx = 0;
+      ps.eventsPlayedInSection = 0;
       ps.sectionT0 = performance.now();
       continue;
     }
 
     const ev = sec.events[ps.eventIdx++];
     ps.eventsPlayed++;
+    ps.eventsPlayedInSection = playedHere + 1;
     ps.currentSection = sec;
     ps.currentEvent = ev;
     return { section: sec, event: ev };
@@ -725,7 +777,7 @@ function playNext() {
   }
 
   document.getElementById('now').textContent =
-    '[' + section.name + ']  ' + ps.eventsPlayed + ' / ' + ps.totalEvents + '  ' + ev.label;
+    '[' + section.name + ']  ' + ps.eventsPlayedInSection + '  ' + ev.label;
 
   if (useSwap) {
     // SWAP: vid já está pre-seekado pelo evento anterior. Só play.
@@ -822,13 +874,13 @@ function finish() {
 }
 
 // ── timer ───────────────────────────────────────────────────────────
-// estima total: por seção, soma natural; se tem limite, usa min(limite, natural).
-// na prática o tempo real fica entre limite e limite+um_evento (espera
-// vídeo atual terminar antes de pular). exibição é só estimativa.
+// com limit, a seção roda em loop até estourar → duração ≈ limit (mais
+// alguns segundos de overshoot do último evento). sem limit, dura a soma
+// natural dos eventos.
 function estimateTotal(sections) {
   return sections.reduce((sum, sec) => {
     const natural = sec.events.reduce((s, e) => s + (e.end - e.start) / e.speed, 0);
-    return sum + (sec.limit !== undefined ? Math.min(sec.limit, natural) : natural);
+    return sum + (sec.limit !== undefined ? sec.limit : natural);
   }, 0);
 }
 
