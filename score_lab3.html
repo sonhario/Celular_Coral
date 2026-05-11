@@ -288,7 +288,55 @@
 // ex: { id: 9, start: 68, end: 72, dark: true } → todo { id: 9 } já vem dark.
 
 const FRAGMENTS = [
-  { id: 'disc', start: 155.4, end: 155.6 },
+  { id: 'disc', start: 155.5, end: 155.6 },
+
+  // WORDS:
+
+  {id: 'w1', start: 115, end: 116.1},
+  {id: 'w2', start: 43.5, end: 46},
+  {id: 'w3', start: 25.7, end: 26.9},
+  {id: 'w4', start: 14, end: 16},
+  {id: 'w5', start: 148, end: 155},
+  {id: 'w7', start: 124, end: 127.7},
+  {id: 'w9', start: 116.45, end: 117.5},
+  {id: 'w10', start: 115, end: 116.1},
+  {id: 'w11', start: 113, end: 114.5},
+  {id: 'w14', start: 102, end: 105.6},
+  {id: 'w15', start: 91, end: 101.8},
+  {id: 'w17', start: 73, end: 76.5},
+  {id: 'w18', start: 54.3, end: 55.5},
+  {id: 'w19', start: 53.55, end: 54},
+  {id: 'w22', start: 38, end: 39},
+  {id: 'w23', start: 34.8, end: 36},
+  {id: 'w24', start: 28.5, end: 29.5},
+  {id: 'w25', start: 25.7, end: 26.9},
+  {id: 'w26', start: 24.8, end: 25.7},
+  {id: 'w27', start: 20.1, end: 21.5},
+  {id: 'w28', start: 14, end: 16},
+  {id: 'w29', start: 10, end: 10.8},
+
+  // VOGAIS:
+
+  {id: 'v15', start: 83, end: 90.24},
+  {id: 'v14', start: 75.5, end: 78.5},
+  {id: 'v13', start: 68.6, end: 72.3},
+  {id: 'v12', start: 63.1, end: 68.3},
+  {id: 'v11', start: 56.2, end: 63.1},
+  {id: 'v10', start: 56, end: 68.8},
+  {id: 'v9', start: 49, end: 53},
+  {id: 'v8', start: 39, end: 43.3},
+  {id: 'v7', start: 36, end: 37.7},
+  {id: 'v6', start: 30, end: 34.7},
+  {id: 'v5', start: 27, end: 28.3},
+  {id: 'v4', start: 22, end: 24.5},
+  {id: 'v3', start: 16, end: 19},
+  {id: 'v2', start: 11, end: 14},
+  {id: 'v1', start: 2.6, end: 8.8},
+
+  // CON:
+
+  { id: 'con', start: 155.8, end: 155.9 },
+
 ];
 
 
@@ -330,8 +378,8 @@ console.log('duração disc:', disc.end - disc.start)
 
 // PARTE A (INÍCIO / DISC):
 run_a([
-  { id: 'disc', grain: { anchor: 'start', expand: 10, step: 0.1 } },
-], 20) // >>-----> DURAÇÃO do TIMER de A em segundos
+  { id: 'disc', grain: { anchor: 'start', expand: 15, step: 0.08 } },
+], 30) // >>-----> DURAÇÃO do TIMER de A em segundos
 
 
 
@@ -358,8 +406,8 @@ run_d([
 
 // PARTE E (FIM)
 run_e([
-
-]) // TIMER SEM LIMITE — toca tudo
+  { id: 'con', grain: { anchor: 'start', expand: 15, step: 0.08 } },
+]) // TIMER SEM LIMITE — toca tudo uma vez
 
 
 // ── REFERÊNCIA RÁPIDA DE COMANDOS ───────────────────────────────────
