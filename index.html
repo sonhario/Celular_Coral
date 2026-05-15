@@ -559,9 +559,17 @@ function partitura() {
 //
 // LOOP:
 // { id: 2, times: 3 }                 repete 3 vezes
-// { id: 2, times: 8, limit: 10 }      repete até 8x OU 10s — o que vier antes
-//                                     (ao estourar, pula pro próximo objeto)
-// { id: 2, times: rand(2,4), limit: rand(8,15) }  ambos podem ser aleatórios
+//
+// LIMIT do OBJETO (timer dentro do objeto, hierarquia acima do times):
+// { id: 2, times: 3, limit: 20 }
+//   → toca os 3 times. Se sobrar tempo (< 20s), RE-EXPANDE o objeto:
+//     re-roda o times do zero (rand re-sortei novo). Continua até 20s.
+//
+// { id: 2, times: rand(2,4), limit: 20 }
+//   → cada iteração sorteia 2, 3 ou 4 reps. Re-itera até 20s.
+//
+// { id: 2, times: rand(2,4), limit: rand_fixed(8,15) }
+//   → limit também pode ser aleatório.
 //
 // SÍNTESE GRANULAR:
 // { id: 5, grain: { anchor: 'start', expand: 4 } }      início fixo, grão cresce
@@ -722,21 +730,28 @@ function resolveFixed(v) {
   return v;
 }
 
-// ── coleta dos eventos das 5 seções ─────────────────────────────────
-function run_a(score, limit) { (window._sections ||= []).push({ name: 'A', score, events: expandScore(score), limit }); }
-function run_b(score, limit) { (window._sections ||= []).push({ name: 'B', score, events: expandScore(score), limit }); }
-function run_c(score, limit) { (window._sections ||= []).push({ name: 'C', score, events: expandScore(score), limit }); }
-function run_d(score, limit) { (window._sections ||= []).push({ name: 'D', score, events: expandScore(score), limit }); }
-function run_e(score, limit) { (window._sections ||= []).push({ name: 'E', score, events: expandScore(score), limit }); }
+// ── coleta das seções ───────────────────────────────────────────────
+// Cada seção armazena rawObjects (lista crua) ao invés de eventos
+// pré-expandidos. Cada objeto é expandido on-demand quando vai tocar
+// (em startObjectIteration), e re-expandido quando precisa loopar
+// (por limit do objeto ou da run). Assim re-rola times/fixed/var.
+function run_a(score, limit) { (window._sections ||= []).push({ name: 'A', score, rawObjects: expandRawObjects(score), limit }); }
+function run_b(score, limit) { (window._sections ||= []).push({ name: 'B', score, rawObjects: expandRawObjects(score), limit }); }
+function run_c(score, limit) { (window._sections ||= []).push({ name: 'C', score, rawObjects: expandRawObjects(score), limit }); }
+function run_d(score, limit) { (window._sections ||= []).push({ name: 'D', score, rawObjects: expandRawObjects(score), limit }); }
+function run_e(score, limit) { (window._sections ||= []).push({ name: 'E', score, rawObjects: expandRawObjects(score), limit }); }
 
-function expandScore(score) {
+// expandRawObjects: pega o score (array ou função) e devolve a lista crua
+// de objetos. NÃO expande times.
+function expandRawObjects(score) {
   const arr = typeof score === 'function' ? score() : score;
-  const events = [];
-  for (const item of [].concat(arr)) events.push(...expandEvent(item));
-  return events;
+  return [].concat(arr);
 }
 
-function expandEvent(rawEv) {
+// expandObject: expande UM objeto (uma iteração) → array de eventos.
+// Resolve times (re-rola por iteração), aplica snapshot fixed/var, faz
+// merge com FRAGMENTS, normaliza.
+function expandObject(rawEv) {
   let n, isGrain, grainCfg;
   if (rawEv.grain !== undefined) {
     isGrain  = true;
@@ -750,15 +765,9 @@ function expandEvent(rawEv) {
     n       = rawEv.times !== undefined ? resolve(rawEv.times) : 1;
   }
 
-  // Limit do OBJETO (opcional): tempo máximo desse objeto na run.
-  // Quando estoura, pula direto pro próximo objeto, mesmo se ainda
-  // restarem reps do times. Aceita rand/_fixed (resolve 1x).
-  const objectLimit = rawEv.limit !== undefined ? resolve(rawEv.limit) : undefined;
-
-  // Snapshot: resolve FIXED uma vez (congela pra todas as N reps).
-  // VAR continua thunk no snapshot e re-rola dentro do for. Quando a
-  // seção dá loop, expandScore re-chama expandEvent → novo snapshot
-  // → fixed re-rola.
+  // Snapshot: resolve FIXED uma vez pra esta iteração (congela pelas N reps).
+  // VAR continua thunk no snapshot e re-rola por rep. Próxima iteração
+  // (loop por limit) chama expandObject de novo → novo snapshot.
   const snapshot = resolveFixed(rawEv);
 
   const evs = [];
@@ -781,7 +790,6 @@ function expandEvent(rawEv) {
       throw new Error('duração ≤ 0 em id:' + ev.id + ' (start=' + ev.start + ', end=' + ev.end + ')');
     }
 
-    let outEv;
     if (isGrain) {
       const base      = ev.end - ev.start;
       const step      = grainCfg.step || 0.5;
@@ -790,23 +798,14 @@ function expandEvent(rawEv) {
       const grainDur  = Math.max(0.01, base + (isExpand ? step * i : -step * i));
       const s = anchorEnd ? ev.end - grainDur : ev.start;
       const e = anchorEnd ? ev.end            : ev.start + grainDur;
-      outEv = normalize({ ...ev, start: s, end: e,
+      evs.push(normalize({ ...ev, start: s, end: e,
         fadeIn:  i === 0     ? (ev.fadeIn  || 0) : 0,
-        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 });
+        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 }));
     } else {
-      outEv = normalize({ ...ev,
+      evs.push(normalize({ ...ev,
         fadeIn:  i === 0     ? (ev.fadeIn  || 0) : 0,
-        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 });
+        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 }));
     }
-
-    // tag o primeiro evento com marcadores do objeto pra nextEvent saber
-    // onde começa cada objeto e qual o limit dele
-    if (i === 0) {
-      outEv.__objectStart = true;
-      if (objectLimit !== undefined) outEv.__objectLimit = objectLimit;
-    }
-
-    evs.push(outEv);
   }
   return evs;
 }
@@ -844,20 +843,24 @@ function startPartitura() {
   activeVid = vidA;
 
   const sections = window._sections || [];
-  const totalEvents = sections.reduce((n, s) => n + s.events.length, 0);
-  if (totalEvents === 0) {
+  const totalRawObjects = sections.reduce((n, s) => n + s.rawObjects.length, 0);
+  if (totalRawObjects === 0) {
     finish();
     return;
   }
 
   ps = {
     sections,
-    sectionIdx: 0, eventIdx: 0,
-    totalEvents, eventsPlayed: 0, eventsPlayedInSection: 0,
+    sectionIdx: 0,
+    eventsPlayed: 0, eventsPlayedInSection: 0,
     currentSection: null, currentEvent: null,
     alive: true, fadeIv: null, stepTo: null,
     t0: 0, sectionT0: 0, timerIv: null,
-    objectT0: undefined, objectLimit: undefined,
+    objectIdx: -1,
+    objectEvents: [],
+    objectEventIdx: 0,
+    objectT0: undefined,
+    objectLimit: undefined,
   };
 
   ps.t0 = performance.now();
@@ -866,70 +869,92 @@ function startPartitura() {
   playNext();
 }
 
+// nextEvent — máquina de estado em 3 níveis:
+//   SEÇÃO  → quando todos os objetos terminam, se sec.limit ainda permite,
+//            regen (re-chama score se for função) e começa de novo no obj 0.
+//   OBJETO → quando todos os times de uma iteração terminam, se obj.limit
+//            ainda permite, RE-EXPANDE o objeto (re-rola times e fixed/var)
+//            e toca de novo. Limit do objeto > times: limit manda. Sem limit,
+//            objeto toca exatamente 1 iteração.
+//   TIMES  → as N reps internas de uma iteração (já estão em objectEvents).
+function startObjectIteration(sec, idx, alsoResetTimer) {
+  const rawEv = sec.rawObjects[idx];
+  ps.objectIdx = idx;
+  ps.objectEvents = expandObject(rawEv);
+  ps.objectEventIdx = 0;
+  if (alsoResetTimer) {
+    ps.objectT0 = performance.now();
+    ps.objectLimit = rawEv.limit !== undefined ? resolve(rawEv.limit) : undefined;
+  }
+}
+
+function resetSectionState() {
+  ps.objectIdx = -1;
+  ps.objectEvents = [];
+  ps.objectEventIdx = 0;
+  ps.objectT0 = undefined;
+  ps.objectLimit = undefined;
+  ps.eventsPlayedInSection = 0;
+  ps.sectionT0 = performance.now();
+}
+
 function nextEvent() {
   while (ps.sectionIdx < ps.sections.length) {
     const sec = ps.sections[ps.sectionIdx];
     const elapsedInSec = (performance.now() - ps.sectionT0) / 1000;
     const hasLimit = sec.limit !== undefined;
-    const limitHit = hasLimit && elapsedInSec >= sec.limit;
+    const sectionLimitHit = hasLimit && elapsedInSec >= sec.limit;
     const playedHere = ps.eventsPlayedInSection || 0;
 
-    if (limitHit && playedHere > 0) {
+    if (sectionLimitHit && playedHere > 0) {
       ps.sectionIdx++;
-      ps.eventIdx = 0;
-      ps.eventsPlayedInSection = 0;
-      ps.sectionT0 = performance.now();
-      ps.objectT0 = undefined;
-      ps.objectLimit = undefined;
+      resetSectionState();
       continue;
     }
 
-    if (ps.eventIdx >= sec.events.length) {
-      if (hasLimit && !limitHit) {
-        const regen = expandScore(sec.score);
-        if (regen.length > 0) {
-          sec.events = regen;
-          ps.eventIdx = 0;
-          ps.objectT0 = undefined;
-          ps.objectLimit = undefined;
-          continue;
-        }
+    if (ps.objectIdx < 0) {
+      if (sec.rawObjects.length === 0) {
+        ps.sectionIdx++;
+        resetSectionState();
+        continue;
       }
-      ps.sectionIdx++;
-      ps.eventIdx = 0;
-      ps.eventsPlayedInSection = 0;
-      ps.sectionT0 = performance.now();
-      ps.objectT0 = undefined;
-      ps.objectLimit = undefined;
+      startObjectIteration(sec, 0, true);
+    }
+
+    if (ps.objectEventIdx < ps.objectEvents.length) {
+      const ev = ps.objectEvents[ps.objectEventIdx++];
+      ps.eventsPlayed++;
+      ps.eventsPlayedInSection = playedHere + 1;
+      ps.currentSection = sec;
+      ps.currentEvent = ev;
+      return { section: sec, event: ev };
+    }
+
+    // Iteração do objeto acabou. Object limit + tempo restante? Re-expande.
+    if (ps.objectLimit !== undefined) {
+      const objectElapsed = (performance.now() - ps.objectT0) / 1000;
+      if (objectElapsed < ps.objectLimit) {
+        startObjectIteration(sec, ps.objectIdx, false);
+        if (ps.objectEvents.length > 0) continue;
+      }
+    }
+
+    const nextIdx = ps.objectIdx + 1;
+    if (nextIdx < sec.rawObjects.length) {
+      startObjectIteration(sec, nextIdx, true);
       continue;
     }
 
-    // OBJETO: se o objeto atual estourou seu limit, pula pros eventos do
-    // próximo objeto (achado pelo marcador __objectStart).
-    if (ps.objectLimit !== undefined && ps.objectT0 !== undefined) {
-      const objectElapsed = (performance.now() - ps.objectT0) / 1000;
-      if (objectElapsed >= ps.objectLimit) {
-        while (ps.eventIdx < sec.events.length && !sec.events[ps.eventIdx].__objectStart) {
-          ps.eventIdx++;
-        }
-        ps.objectT0 = undefined;
-        ps.objectLimit = undefined;
+    if (hasLimit && !sectionLimitHit) {
+      sec.rawObjects = expandRawObjects(sec.score);
+      if (sec.rawObjects.length > 0) {
+        startObjectIteration(sec, 0, true);
         continue;
       }
     }
 
-    const ev = sec.events[ps.eventIdx++];
-
-    if (ev.__objectStart) {
-      ps.objectT0 = performance.now();
-      ps.objectLimit = ev.__objectLimit;
-    }
-
-    ps.eventsPlayed++;
-    ps.eventsPlayedInSection = playedHere + 1;
-    ps.currentSection = sec;
-    ps.currentEvent = ev;
-    return { section: sec, event: ev };
+    ps.sectionIdx++;
+    resetSectionState();
   }
   return null;
 }
@@ -1053,8 +1078,16 @@ function finish() {
 // ── timer ───────────────────────────────────────────────────────────
 function estimateTotal(sections) {
   return sections.reduce((sum, sec) => {
-    const natural = sec.events.reduce((s, e) => s + (e.end - e.start) / e.speed, 0);
-    return sum + (sec.limit !== undefined ? sec.limit : natural);
+    if (sec.limit !== undefined) return sum + sec.limit;
+    const natural = sec.rawObjects.reduce((s, raw) => {
+      try {
+        const lim = raw.limit !== undefined ? resolve(raw.limit) : undefined;
+        if (lim !== undefined) return s + lim;
+        const evs = expandObject(raw);
+        return s + evs.reduce((d, e) => d + (e.end - e.start) / e.speed, 0);
+      } catch { return s; }
+    }, 0);
+    return sum + natural;
   }, 0);
 }
 
