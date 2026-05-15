@@ -149,9 +149,8 @@
   .share-square {
     width: 180px;
     height: 180px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
   }
   .share-btn {
     background: none;
@@ -160,12 +159,12 @@
     width: 84px;
     height: 84px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     padding: 0;
+    margin: 0;
   }
-  .share-btn svg { width: 42px; height: 42px; }
+  .share-btn svg { width: 42px; height: 42px; display: block; }
   .share-btn:active { background: #ddd; color: #000; }
 
   #play-hint {
@@ -1024,7 +1023,7 @@ function startPreloading() {
 
   if (videoReady) {
     playBtn.disabled = false;
-    hint.textContent = 'pronto — toque PLAY';
+    hint.textContent = 'pronto';
     hint.className = 'ready';
     return;
   }
@@ -1060,7 +1059,7 @@ function startPreloading() {
     .then(() => {
       videoReady = true;
       playBtn.disabled = false;
-      hint.textContent = 'pronto — toque PLAY';
+      hint.textContent = 'pronto';
       hint.className = 'ready';
     })
     .catch(e => {
