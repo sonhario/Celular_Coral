@@ -559,6 +559,9 @@ function partitura() {
 //
 // LOOP:
 // { id: 2, times: 3 }                 repete 3 vezes
+// { id: 2, times: 8, limit: 10 }      repete até 8x OU 10s — o que vier antes
+//                                     (ao estourar, pula pro próximo objeto)
+// { id: 2, times: rand(2,4), limit: rand(8,15) }  ambos podem ser aleatórios
 //
 // SÍNTESE GRANULAR:
 // { id: 5, grain: { anchor: 'start', expand: 4 } }      início fixo, grão cresce
@@ -747,6 +750,11 @@ function expandEvent(rawEv) {
     n       = rawEv.times !== undefined ? resolve(rawEv.times) : 1;
   }
 
+  // Limit do OBJETO (opcional): tempo máximo desse objeto na run.
+  // Quando estoura, pula direto pro próximo objeto, mesmo se ainda
+  // restarem reps do times. Aceita rand/_fixed (resolve 1x).
+  const objectLimit = rawEv.limit !== undefined ? resolve(rawEv.limit) : undefined;
+
   // Snapshot: resolve FIXED uma vez (congela pra todas as N reps).
   // VAR continua thunk no snapshot e re-rola dentro do for. Quando a
   // seção dá loop, expandScore re-chama expandEvent → novo snapshot
@@ -773,6 +781,7 @@ function expandEvent(rawEv) {
       throw new Error('duração ≤ 0 em id:' + ev.id + ' (start=' + ev.start + ', end=' + ev.end + ')');
     }
 
+    let outEv;
     if (isGrain) {
       const base      = ev.end - ev.start;
       const step      = grainCfg.step || 0.5;
@@ -781,14 +790,23 @@ function expandEvent(rawEv) {
       const grainDur  = Math.max(0.01, base + (isExpand ? step * i : -step * i));
       const s = anchorEnd ? ev.end - grainDur : ev.start;
       const e = anchorEnd ? ev.end            : ev.start + grainDur;
-      evs.push(normalize({ ...ev, start: s, end: e,
+      outEv = normalize({ ...ev, start: s, end: e,
         fadeIn:  i === 0     ? (ev.fadeIn  || 0) : 0,
-        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 }));
+        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 });
     } else {
-      evs.push(normalize({ ...ev,
+      outEv = normalize({ ...ev,
         fadeIn:  i === 0     ? (ev.fadeIn  || 0) : 0,
-        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 }));
+        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 });
     }
+
+    // tag o primeiro evento com marcadores do objeto pra nextEvent saber
+    // onde começa cada objeto e qual o limit dele
+    if (i === 0) {
+      outEv.__objectStart = true;
+      if (objectLimit !== undefined) outEv.__objectLimit = objectLimit;
+    }
+
+    evs.push(outEv);
   }
   return evs;
 }
@@ -839,6 +857,7 @@ function startPartitura() {
     currentSection: null, currentEvent: null,
     alive: true, fadeIv: null, stepTo: null,
     t0: 0, sectionT0: 0, timerIv: null,
+    objectT0: undefined, objectLimit: undefined,
   };
 
   ps.t0 = performance.now();
@@ -860,6 +879,8 @@ function nextEvent() {
       ps.eventIdx = 0;
       ps.eventsPlayedInSection = 0;
       ps.sectionT0 = performance.now();
+      ps.objectT0 = undefined;
+      ps.objectLimit = undefined;
       continue;
     }
 
@@ -869,6 +890,8 @@ function nextEvent() {
         if (regen.length > 0) {
           sec.events = regen;
           ps.eventIdx = 0;
+          ps.objectT0 = undefined;
+          ps.objectLimit = undefined;
           continue;
         }
       }
@@ -876,10 +899,32 @@ function nextEvent() {
       ps.eventIdx = 0;
       ps.eventsPlayedInSection = 0;
       ps.sectionT0 = performance.now();
+      ps.objectT0 = undefined;
+      ps.objectLimit = undefined;
       continue;
     }
 
+    // OBJETO: se o objeto atual estourou seu limit, pula pros eventos do
+    // próximo objeto (achado pelo marcador __objectStart).
+    if (ps.objectLimit !== undefined && ps.objectT0 !== undefined) {
+      const objectElapsed = (performance.now() - ps.objectT0) / 1000;
+      if (objectElapsed >= ps.objectLimit) {
+        while (ps.eventIdx < sec.events.length && !sec.events[ps.eventIdx].__objectStart) {
+          ps.eventIdx++;
+        }
+        ps.objectT0 = undefined;
+        ps.objectLimit = undefined;
+        continue;
+      }
+    }
+
     const ev = sec.events[ps.eventIdx++];
+
+    if (ev.__objectStart) {
+      ps.objectT0 = performance.now();
+      ps.objectLimit = ev.__objectLimit;
+    }
+
     ps.eventsPlayed++;
     ps.eventsPlayedInSection = playedHere + 1;
     ps.currentSection = sec;
