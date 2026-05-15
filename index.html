@@ -33,14 +33,14 @@
 
   /* ── TYPOGRAPHY ────────────────────────────────────────────────── */
   .title {
-    font-size: 18px;
+    font-size: 32px;
     letter-spacing: 6px;
     color: #fff;
     font-weight: normal;
     text-align: center;
   }
   .subtitle {
-    font-size: 11px;
+    font-size: 20px;
     letter-spacing: 3px;
     color: #888;
     text-align: center;
@@ -53,9 +53,9 @@
     border: 1px solid #ddd;
     color: #ddd;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 23px;
     letter-spacing: 4px;
-    padding: 14px 38px;
+    padding: 18px 44px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
   }
@@ -73,10 +73,10 @@
     border: none;
     color: #fff;
     font-family: inherit;
-    font-size: 12px;
+    font-size: 22px;
     letter-spacing: 4px;
     cursor: pointer;
-    padding: 14px 18px;
+    padding: 16px 22px;
   }
   .btn-sobre:active { color: #888; }
 
@@ -122,7 +122,7 @@
   }
   .instructions li {
     counter-increment: step;
-    font-size: 12px;
+    font-size: 22px;
     letter-spacing: 1.5px;
     color: #ccc;
     line-height: 1.6;
@@ -140,33 +140,33 @@
     margin-left: 18px;
   }
   #qrcode {
-    width: 110px;
-    height: 110px;
+    width: 180px;
+    height: 180px;
     background: #fff;
-    padding: 6px;
+    padding: 8px;
     display: block;
   }
   .share-btn {
     background: none;
     border: 1px solid #ddd;
     color: #ddd;
-    width: 46px;
-    height: 46px;
+    width: 70px;
+    height: 70px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .share-btn svg { width: 22px; height: 22px; }
+  .share-btn svg { width: 34px; height: 34px; }
   .share-btn:active { background: #ddd; color: #000; }
 
   #play-hint {
-    font-size: 10px;
+    font-size: 18px;
     letter-spacing: 2px;
     color: #555;
-    margin-top: 14px;
+    margin-top: 18px;
     text-align: center;
-    min-height: 14px;
+    min-height: 22px;
   }
   #play-hint.ready { color: #7c7; }
   #play-hint.error { color: #c77; }
@@ -190,10 +190,10 @@
   }
   #info {
     position: absolute;
-    bottom: 8px;
-    left: 10px;
-    right: 10px;
-    font-size: 10px;
+    bottom: 10px;
+    left: 12px;
+    right: 12px;
+    font-size: 18px;
     color: #555;
     letter-spacing: 1px;
     display: flex;
@@ -202,13 +202,13 @@
   }
   #muted-badge {
     position: absolute;
-    top: 8px;
-    right: 10px;
+    top: 10px;
+    right: 12px;
     background: rgba(200, 60, 60, 0.85);
     color: #fff;
-    padding: 4px 8px;
+    padding: 6px 12px;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 20px;
     letter-spacing: 1px;
     display: none;
     pointer-events: none;
@@ -233,58 +233,64 @@
     background: none;
     border: none;
     color: #fff;
-    font-size: 32px;
+    font-size: 56px;
     line-height: 1;
     cursor: pointer;
-    width: 44px;
-    height: 44px;
+    width: 60px;
+    height: 60px;
     z-index: 101;
   }
   .modal-content {
-    max-width: 580px;
+    max-width: 700px;
     margin: 0 auto;
     color: #ccc;
-    font-size: 13px;
+    font-size: 23px;
     line-height: 1.75;
   }
   .modal-title {
-    font-size: 13px;
+    font-size: 24px;
     letter-spacing: 2px;
     font-weight: normal;
     color: #fff;
-    margin-bottom: 28px;
+    margin-bottom: 32px;
   }
-  .modal-text p { margin-bottom: 14px; }
+  .modal-text p { margin-bottom: 18px; }
   .modal-text em { font-style: italic; }
   .modal-text strong { color: #fff; font-weight: normal; }
   .ficha-title {
-    margin-top: 28px;
-    margin-bottom: 12px;
-    font-size: 12px;
+    margin-top: 36px;
+    margin-bottom: 16px;
+    font-size: 22px;
     letter-spacing: 2px;
     font-weight: normal;
     color: #fff;
   }
   .ficha {
     list-style: none;
-    font-size: 12px;
+    font-size: 22px;
     line-height: 1.9;
     color: #aaa;
   }
 
   /* ── MOBILE ────────────────────────────────────────────────────── */
   @media (max-width: 700px) {
-    .title { font-size: 15px; letter-spacing: 5px; }
-    .subtitle { font-size: 10px; letter-spacing: 2.5px; }
-    .btn-main { padding: 13px 32px; font-size: 12px; letter-spacing: 3px; }
+    .title { font-size: 27px; letter-spacing: 5px; }
+    .subtitle { font-size: 18px; letter-spacing: 2.5px; }
+    .btn-main { padding: 16px 36px; font-size: 22px; letter-spacing: 3px; }
+    .btn-sobre { font-size: 20px; }
     .prepare-content { padding-top: 20px; }
     .prepare-content .subtitle { margin-bottom: 24px; }
-    #qrcode { width: 96px; height: 96px; }
-    .share-btn { width: 42px; height: 42px; }
-    .instructions { gap: 14px; }
-    .instructions li { font-size: 11px; }
-    #modal-sobre { padding: 50px 18px 30px; }
-    .modal-content { font-size: 12px; }
+    #qrcode { width: 160px; height: 160px; }
+    .share-btn { width: 64px; height: 64px; }
+    .share-btn svg { width: 30px; height: 30px; }
+    .instructions { gap: 18px; }
+    .instructions li { font-size: 20px; }
+    #play-hint { font-size: 16px; }
+    #info { font-size: 16px; }
+    #modal-sobre { padding: 60px 20px 30px; }
+    .modal-content { font-size: 20px; }
+    .modal-title { font-size: 22px; }
+    .ficha, .ficha-title { font-size: 20px; }
   }
 </style>
 </head>
@@ -349,7 +355,7 @@
 <div id="modal-sobre">
   <button class="modal-close" data-action="close-sobre" aria-label="fechar">×</button>
   <div class="modal-content">
-    <h2 class="modal-title">[ SOBRE / descrição ] Dissimulation #5</h2>
+    <h2 class="modal-title">Dissimulation #5</h2>
     <div class="modal-text">
       <p>O trabalho é uma adaptação de "Laptop Coral" (Viena, 2012) para múltiplos dispositivos localmente situados.</p>
       <p>A versão original, concebida para a obra Bare Branches de Pia Palme para o festival Wien Modern, a qual inaugurou a série de trabalhos <em>Simulacrum</em> aqui é atualizada para um contexto tecnológico diferente, modulado por tecnologias ubíquas e disruptivas que dissimulam a formação de tecidos sônicos coletivos. Nesta versão o laptop é substituído por celulares que acessam o conteúdo disponível via web. A proposta é criar uma experiência coletiva, onde os participantes acessam conjuntamente o material audiovisual via web. O trabalho reafirma o conceito original de coral maquínico através da coletividade em <strong>rede</strong> local, explora os dispositivos contemporâneos através de uma performatividade coletiva convidando os ouvintes/participantes a exercitar a escuta de um coro polifônico.</p>
