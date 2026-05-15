@@ -109,7 +109,17 @@
     overflow-y: auto;
   }
   .prepare-content .title { margin-bottom: 10px; }
-  .prepare-content .subtitle { margin-bottom: 32px; }
+  .prepare-content .subtitle { margin-bottom: 0; }
+
+  .prepare-block {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 0;
+  }
 
   .instructions {
     list-style: none;
@@ -322,28 +332,30 @@
     <h2 class="title">DISSIMULATION #5</h2>
     <p class="subtitle">peça para múltiplos dispositivos<br>localmente situados</p>
 
-    <ol class="instructions">
-      <li>Compartilhar com pessoas próximas:
-        <div class="share-row">
-          <img id="qrcode" src="qrcode.png" alt="QR code">
-          <div class="share-square">
-            <button id="btn-share" class="share-btn" aria-label="compartilhar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 4h6v6"/>
-                <path d="M10 14L20 4"/>
-                <path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/>
-              </svg>
-            </button>
+    <div class="prepare-block">
+      <ol class="instructions">
+        <li>Compartilhar com pessoas próximas:
+          <div class="share-row">
+            <img id="qrcode" src="qrcode.png" alt="QR code">
+            <div class="share-square">
+              <button id="btn-share" class="share-btn" aria-label="compartilhar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 4h6v6"/>
+                  <path d="M10 14L20 4"/>
+                  <path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/>
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
-      </li>
-      <li>Verificar se todos estão prontos e nesta página</li>
-      <li>Ajustar o som no volume máximo</li>
-      <li>Clicar no botão PLAY ao mesmo tempo</li>
-    </ol>
+        </li>
+        <li>Verificar se todos estão prontos e nesta página</li>
+        <li>Ajustar o som no volume máximo</li>
+        <li>Clicar no botão PLAY ao mesmo tempo</li>
+      </ol>
 
-    <button id="btn-play" class="btn-main" disabled>▶ PLAY</button>
-    <p id="play-hint">carregando vídeo…</p>
+      <button id="btn-play" class="btn-main" disabled>▶ PLAY</button>
+      <p id="play-hint">carregando vídeo…</p>
+    </div>
   </div>
   <div class="page-bottom">
     <button class="btn-sobre" data-action="open-sobre">[ SOBRE ]</button>
