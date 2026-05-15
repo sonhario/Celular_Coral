@@ -397,7 +397,6 @@
   <div class="modal-content">
     <h2 class="modal-title">Dissimulation #5</h2>
     <div class="modal-text">
-      <p>O trabalho é uma adaptação de "Laptop Coral" (Viena, 2012) para múltiplos dispositivos localmente situados.</p>
       <p>Este trabalho é uma releitura da obra "Laptop Coral", originalmente apresentada em 2012, em Viena. Originalmente a peça utilizava computadores, ela foi adaptada para a realidade dos dispositivos móveis. Essa mudança reflete a presença das tecnologias em lugares ao mesmo tempo (tecnologias ubíquas). Em vez de apenas assistir a uma apresentação, o público se torna parte dela: os participantes usam seus próprios celulares para acessar um conteúdo audiovisual via web, tornando cada celular um emissor de som e imagem. Ao estarem no mesmo local e iniciar o trabalho sincronicamente, os sons de cada celular se somam. O resultado é um "tecido sônico coletivo" — uma massa de som criada por várias fontes individuais. O trabalho busca explorar o conceito de "coral maquínico" tornando os dispositivos móveis em vozes de um coral. A ideia central é convidar as pessoas a saírem da escuta individualizada e experimentarem uma performatividade coletiva, onde o esforço de cada um em rede cria uma harmonia complexa e polifônica.</p>
     </div>
     <h3 class="ficha-title">Ficha técnica</h3>
@@ -1126,20 +1125,66 @@ const pages = {
   player:  document.getElementById('page-player'),
 };
 
+let currentPage = 'landing';
+
 function showPage(name) {
   for (const k in pages) pages[k].classList.toggle('active', k === name);
+  currentPage = name;
 }
+
+// Browser history: cada navegação forward (INICIAR / PLAY / abrir SOBRE)
+// faz um pushState. O botão back do navegador dispara popstate, e o
+// handler abaixo faz o reverso: fecha modal SE aberto, senão volta pra
+// landing (parando playback se estiver no player).
+function pushView() {
+  history.pushState({}, '');
+}
+
+function abortPlayback() {
+  if (ps) {
+    ps.alive = false;
+    if (ps.fadeIv) { clearInterval(ps.fadeIv); ps.fadeIv = null; }
+    if (ps.stepTo) { clearTimeout(ps.stepTo); ps.stepTo = null; }
+  }
+  stopTimer();
+  const vid = document.getElementById('player-a');
+  if (vid) {
+    vid.pause();
+    vid.style.opacity = '0';
+    vid.volume = 0;
+  }
+  document.getElementById('now').textContent = '';
+  document.getElementById('timer').textContent = '';
+}
+
+window.addEventListener('popstate', () => {
+  if (modalSobre.classList.contains('show')) {
+    modalSobre.classList.remove('show');
+    return;
+  }
+  if (currentPage === 'player') {
+    abortPlayback();
+    showPage('landing');
+  } else if (currentPage === 'prepare') {
+    showPage('landing');
+  }
+});
 
 // ── modal SOBRE ─────────────────────────────────────────────────────
 const modalSobre = document.getElementById('modal-sobre');
 document.querySelectorAll('[data-action="open-sobre"]').forEach(btn => {
-  btn.addEventListener('click', () => modalSobre.classList.add('show'));
+  btn.addEventListener('click', () => {
+    pushView();
+    modalSobre.classList.add('show');
+  });
 });
+// Fechar = history.back() pra manter o histórico do navegador alinhado
+// (popstate handler fecha o modal)
 document.querySelectorAll('[data-action="close-sobre"]').forEach(btn => {
-  btn.addEventListener('click', () => modalSobre.classList.remove('show'));
+  btn.addEventListener('click', () => history.back());
 });
 modalSobre.addEventListener('click', e => {
-  if (e.target === modalSobre) modalSobre.classList.remove('show');
+  if (e.target === modalSobre) history.back();
 });
 
 // ── share ───────────────────────────────────────────────────────────
@@ -1160,6 +1205,7 @@ document.getElementById('btn-share').addEventListener('click', async () => {
 
 // ── INICIAR → vai pra preparar + começa preload ─────────────────────
 document.getElementById('btn-iniciar').addEventListener('click', () => {
+  pushView();
   showPage('prepare');
   startPreloading();
 });
@@ -1225,6 +1271,7 @@ document.getElementById('btn-play').addEventListener('click', () => {
   vid.style.visibility = 'hidden';
   vid.play().then(() => vid.pause())
     .then(() => {
+      pushView();
       vid.style.visibility = 'visible';
       showPage('player');
       startPartitura();
@@ -1233,6 +1280,7 @@ document.getElementById('btn-play').addEventListener('click', () => {
       vid.muted = true;
       document.getElementById('muted-badge').style.display = 'block';
       vid.style.visibility = 'visible';
+      pushView();
       showPage('player');
       startPartitura();
     });
