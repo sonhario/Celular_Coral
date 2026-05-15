@@ -481,10 +481,13 @@ run_e([
 // ALEATORIEDADE
 //
 // 4 helpers principais — cada um tem uma versão "var" (default) e
-// uma "_fixed". Diferença SÓ aparece dentro de { times: N } (ou grain):
+// uma "_fixed". A diferença é QUANDO o sorteio acontece:
 //
-//   VAR:    sorteia NOVO valor a cada repetição do times/grão.
-//   FIXED:  sorteia UMA vez e repete o mesmo nas N reps daquele evento.
+//   VAR:    sorteia NOVO valor a CADA repetição do times/grão.
+//   FIXED:  sorteia 1 valor que vale por TODAS as reps do times daquele
+//           objeto. Quando a seção dá loop (no LIMIT da run), o fixed
+//           sorteia de novo — fica fixo só pelo escopo daquele objeto
+//           dentro da volta atual do loop.
 //
 // rand(min, max)             decimal entre min e max
 // irnd(min, max)             inteiro entre min e max (inclusivo)
@@ -584,19 +587,51 @@ function chance(p) {
   fn.__lazy = true;
   return fn;
 }
-function rand_fixed(min, max)  { return Math.random() * (max - min) + min; }
-function irnd_fixed(min, max)  { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function pick_fixed(arr)       { return arr[Math.floor(Math.random() * arr.length)]; }
-function chance_fixed(p)       { return Math.random() < p; }
+function rand_fixed(min, max) {
+  const fn = () => Math.random() * (max - min) + min;
+  fn.__lazy_fixed = true;
+  return fn;
+}
+function irnd_fixed(min, max) {
+  const fn = () => Math.floor(Math.random() * (max - min + 1)) + min;
+  fn.__lazy_fixed = true;
+  return fn;
+}
+function pick_fixed(arr) {
+  const fn = () => arr[Math.floor(Math.random() * arr.length)];
+  fn.__lazy_fixed = true;
+  return fn;
+}
+function chance_fixed(p) {
+  const fn = () => Math.random() < p;
+  fn.__lazy_fixed = true;
+  return fn;
+}
 
-// resolve — walka o objeto, chama qualquer função marcada __lazy.
-// Recursiva pra suportar nested (ex: grain: { step: rand(...) }).
+// resolve — chama TODOS os thunks (var + fixed). Usado pra times/grain
+// (que resolvem uma vez antes do loop) e pra cada iteração do times
+// dentro de uma expansão (depois que fixed já foi snapshotado).
 function resolve(v) {
-  if (typeof v === 'function' && v.__lazy) return v();
+  if (typeof v === 'function' && (v.__lazy || v.__lazy_fixed)) return v();
   if (Array.isArray(v)) return v.map(resolve);
   if (v && typeof v === 'object') {
     const out = {};
     for (const k in v) out[k] = resolve(v[k]);
+    return out;
+  }
+  return v;
+}
+
+// resolveFixed — chama SÓ os thunks fixed, deixa var passar.
+// Usado pra criar o snapshot da expansão do evento: fixed congela uma vez
+// pra todas as N reps, var continua sendo thunk pra re-rolar por rep.
+function resolveFixed(v) {
+  if (typeof v === 'function' && v.__lazy_fixed) return v();
+  if (typeof v === 'function') return v;
+  if (Array.isArray(v)) return v.map(resolveFixed);
+  if (v && typeof v === 'object') {
+    const out = {};
+    for (const k in v) out[k] = resolveFixed(v[k]);
     return out;
   }
   return v;
@@ -627,11 +662,16 @@ function expandEvent(rawEv) {
     n       = rawEv.times !== undefined ? resolve(rawEv.times) : 1;
   }
 
+  // 2. Snapshot da expansão: resolve FIXED uma vez (congela pra todas as
+  //    N reps deste objeto). VAR continua como thunk no snapshot e
+  //    re-rola dentro do for. Quando a seção dá loop, expandScore re-
+  //    chama expandEvent → novo snapshot → fixed re-rola.
+  const snapshot = resolveFixed(rawEv);
+
   const evs = [];
   for (let i = 0; i < n; i++) {
-    // 2. A cada repetição, resolve TODOS os outros campos fresh.
-    //    rand/pick/etc. dentro do evento sorteiam valores novos aqui.
-    let ev = resolve(rawEv);
+    // 3. A cada repetição: resolve apenas os VAR (fixed já congelado no snapshot).
+    let ev = resolve(snapshot);
     if (isGrain) ev.grain = grainCfg; // mantém estrutura do grain consistente
 
     if (ev.id === undefined) {
