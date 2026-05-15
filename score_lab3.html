@@ -392,7 +392,9 @@ run_b([
 
 // PARTE C (PALAVRAS):
 run_c([
-
+  { id: pick(['w1','w3','w5','w11','w14','w22','w27']),
+    dur: rand(0.5, 1.5),
+    times: 5 },
 ])         // TIMER SEM LIMITE — toca tudo
 
 
@@ -472,38 +474,57 @@ run_e([
 // daí qualquer { id: 9 } na partitura já vem com dark: true.
 // pra anular pontualmente: { id: 9, dark: false }
 //
-// ALEATORIEDADE — Math.random()
+// ALEATORIEDADE
 //
-// Math.random() sorteia um decimal entre 0 (incluído) e 1 (excluído).
-// cada RUN re-roda o script, então cada execução gera valores novos.
+// 4 helpers principais — cada um tem uma versão "var" (default) e
+// uma "_fixed". Diferença SÓ aparece dentro de { times: N } (ou grain):
 //
-// PADRÃO PARA QUALQUER INTERVALO (inteiro ou decimal):
+//   VAR:    sorteia NOVO valor a cada repetição do times/grão.
+//   FIXED:  sorteia UMA vez e repete o mesmo nas N reps daquele evento.
 //
-//   Math.random() * (max - min) + min
+// rand(min, max)             decimal entre min e max
+// irnd(min, max)             inteiro entre min e max (inclusivo)
+// pick([a, b, c])            sorteia da lista
+// chance(p)                  bool com probabilidade p (0 a 1)
 //
-// Math.random() * 7 + 1                  decimal entre 1 e 8
-// Math.random() * (1.5 - 0.5) + 0.5      decimal entre 0.5 e 1.5
-// Math.random() * (3.75 - 0.25) + 0.25   decimal entre 0.25 e 3.75
+// rand_fixed(min, max)       versões fixas das 4 acima
+// irnd_fixed(min, max)
+// pick_fixed([a, b, c])
+// chance_fixed(p)
 //
-// PARA INTEIROS — envolve com Math.floor():
+// EXEMPLOS — VAR (re-rola por repetição):
 //
-//   Math.floor(Math.random() * (max - min + 1)) + min
+//   { id: 1, dur: rand(0.5, 2), times: 5 }
+//     → 5 reps de id 1, cada uma com dur diferente entre 0.5 e 2
 //
-// Math.floor(Math.random() * 8) + 1      inteiro de 1 a 8
-// Math.floor(Math.random() * 3) + 2      inteiro de 2 a 4
+//   { id: pick(['v1','v2','v3']), times: 4 }
+//     → 4 reps, cada uma sorteia um id diferente da lista
 //
-// USO NA PARTITURA:
+//   { id: 'disc', grain: { anchor: 'start', expand: 10, step: rand(0.05, 0.15) } }
+//     → step do grain re-rola a cada grão (10 grãos com steps variados)
 //
-//   { id: 1, fadeIn: Math.random() * 2 + 1 }              fadeIn entre 1 e 3
-//   { id: 5, times: Math.floor(Math.random() * 3) + 2 }   2, 3 ou 4 loops
-//   { id: 7, dark: Math.random() < 0.5 }                  50% de chance dark
+//   { id: 1, dark: chance(0.3), times: 5 }
+//     → cada uma das 5 reps tem 30% de chance de ser dark
 //
-// SORTEAR DE UMA LISTA NÃO SEQUENCIAL:
+// EXEMPLOS — FIXED (sorteia uma vez, repete o mesmo):
 //
-//   { id: [2, 5, 9][Math.floor(Math.random() * 3)] }      sorteia 2, 5 ou 9
+//   { id: pick_fixed(['v1','v2','v3']), times: 5 }
+//     → sorteia 1 fragmento e toca ele 5x
 //
-// (acima: o array [2, 5, 9] é indexado por um inteiro 0, 1 ou 2,
-//  e Math.floor(Math.random() * 3) sorteia esse índice)
+//   { id: 1, fadeIn: rand_fixed(1, 3) }
+//     → fadeIn varia por evento mas é o mesmo nas reps internas
+//
+// O times também pode ser aleatório (resolve uma vez pra fixar o N):
+//
+//   { id: 'v5', times: irnd(2, 4) }    → 2, 3 ou 4 reps
+//
+// Math.random() puro continua funcionando — comporta-se como _fixed
+// (resolve quando o objeto é construído, não a cada repetição).
+//
+// SE QUISER FIXAR PRO RUN INTEIRO, declara variável no topo:
+//
+//   const TEMPO_A = irnd(20, 40)
+//   run_a([ ... ], TEMPO_A)
 
 
 // ╔══════════════════════════════════════════════════════════════════╗
@@ -527,6 +548,56 @@ function run_c(score, limit) { (window._sections ||= []).push({ name: 'C', score
 function run_d(score, limit) { (window._sections ||= []).push({ name: 'D', score, events: expandScore(score), limit }); }
 function run_e(score, limit) { (window._sections ||= []).push({ name: 'E', score, events: expandScore(score), limit }); }
 
+// ── helpers de aleatoriedade ────────────────────────────────────────
+// rand/irnd/pick/chance retornam uma FUNÇÃO marcada com __lazy.
+// Quando o player monta cada repetição do `times` (ou cada grão), ele
+// "resolve" os campos do evento — chamando essas funções de novo.
+// Resultado: dentro de { times: 5 }, cada repetição sorteia valores novos.
+//
+// As versões _fixed sorteiam UMA vez no momento da expansão e repetem
+// o mesmo valor pelas N reps daquele evento. Útil quando vc quer que
+// um valor varie por evento mas fique igual dentro do loop dele.
+//
+// Math.random() puro continua funcionando — resolve uma vez quando o
+// objeto é construído (equivale a _fixed no contexto do RUN).
+function rand(min, max) {
+  const fn = () => Math.random() * (max - min) + min;
+  fn.__lazy = true;
+  return fn;
+}
+function irnd(min, max) {
+  const fn = () => Math.floor(Math.random() * (max - min + 1)) + min;
+  fn.__lazy = true;
+  return fn;
+}
+function pick(arr) {
+  const fn = () => arr[Math.floor(Math.random() * arr.length)];
+  fn.__lazy = true;
+  return fn;
+}
+function chance(p) {
+  const fn = () => Math.random() < p;
+  fn.__lazy = true;
+  return fn;
+}
+function rand_fixed(min, max)  { return Math.random() * (max - min) + min; }
+function irnd_fixed(min, max)  { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function pick_fixed(arr)       { return arr[Math.floor(Math.random() * arr.length)]; }
+function chance_fixed(p)       { return Math.random() < p; }
+
+// resolve — walka o objeto, chama qualquer função marcada __lazy.
+// Recursiva pra suportar nested (ex: grain: { step: rand(...) }).
+function resolve(v) {
+  if (typeof v === 'function' && v.__lazy) return v();
+  if (Array.isArray(v)) return v.map(resolve);
+  if (v && typeof v === 'object') {
+    const out = {};
+    for (const k in v) out[k] = resolve(v[k]);
+    return out;
+  }
+  return v;
+}
+
 // ── helpers de expansão ─────────────────────────────────────────────
 function expandScore(score) {
   const arr = typeof score === 'function' ? score() : score;
@@ -535,44 +606,59 @@ function expandScore(score) {
   return events;
 }
 
-function expandEvent(ev) {
-  // todo evento precisa de { id: n }
-  if (ev.id === undefined) {
-    throw new Error('evento sem id — todo evento precisa de { id: n }: ' + JSON.stringify(ev));
+function expandEvent(rawEv) {
+  // 1. Determina N (quantas reps) ANTES de qualquer outra coisa.
+  //    times/grain.expand/grain.contract são resolvidos UMA vez —
+  //    senão o tamanho do loop mudaria a cada iteração.
+  let n, isGrain, grainCfg;
+  if (rawEv.grain !== undefined) {
+    isGrain  = true;
+    grainCfg = resolve(rawEv.grain);
+    n        = grainCfg.expand ?? grainCfg.contract;
+    if (typeof n !== 'number') {
+      throw new Error('grain.expand ou grain.contract precisa ser número: ' + JSON.stringify(grainCfg));
+    }
+  } else {
+    isGrain = false;
+    n       = rawEv.times !== undefined ? resolve(rawEv.times) : 1;
   }
-  const fr = FRAGMENTS.find(x => x.id === ev.id);
-  if (!fr) throw new Error('fragmento id:' + ev.id + ' não encontrado em FRAGMENTS');
 
-  // mescla simples: defaults do fragmento + evento sobrescreve tudo
-  const { id: _ignored, ...frDefaults } = fr;
-  ev = { ...frDefaults, ...ev };
+  const evs = [];
+  for (let i = 0; i < n; i++) {
+    // 2. A cada repetição, resolve TODOS os outros campos fresh.
+    //    rand/pick/etc. dentro do evento sorteiam valores novos aqui.
+    let ev = resolve(rawEv);
+    if (isGrain) ev.grain = grainCfg; // mantém estrutura do grain consistente
 
-  // dur (se presente) recalcula end a partir do start atual
-  if (ev.dur !== undefined) ev.end = ev.start + ev.dur;
-  if (ev.end === undefined) throw new Error('id:' + ev.id + ' sem end nem dur');
-  if (ev.end - ev.start <= 0) {
-    throw new Error('duração ≤ 0 em id:' + ev.id + ' (start=' + ev.start + ', end=' + ev.end + ')');
-  }
-  const evs  = [];
-  const base = ev.end - ev.start;
+    if (ev.id === undefined) {
+      throw new Error('evento sem id — todo evento precisa de { id: n }: ' + JSON.stringify(ev));
+    }
+    const fr = FRAGMENTS.find(x => x.id === ev.id);
+    if (!fr) throw new Error('fragmento id:' + ev.id + ' não encontrado em FRAGMENTS');
 
-  if (ev.grain !== undefined) {
-    const g         = ev.grain;
-    const n         = g.expand ?? g.contract;
-    const step      = g.step || 0.5;
-    const isExpand  = g.expand !== undefined;
-    const anchorEnd = g.anchor === 'end';
-    for (let i = 0; i < n; i++) {
-      const grainDur = Math.max(0.01, base + (isExpand ? step * i : -step * i));
+    // mescla: defaults do fragmento + evento sobrescreve tudo
+    const { id: _ignored, ...frDefaults } = fr;
+    ev = { ...frDefaults, ...ev };
+
+    // dur (se presente) recalcula end a partir do start atual
+    if (ev.dur !== undefined) ev.end = ev.start + ev.dur;
+    if (ev.end === undefined) throw new Error('id:' + ev.id + ' sem end nem dur');
+    if (ev.end - ev.start <= 0) {
+      throw new Error('duração ≤ 0 em id:' + ev.id + ' (start=' + ev.start + ', end=' + ev.end + ')');
+    }
+
+    if (isGrain) {
+      const base      = ev.end - ev.start;
+      const step      = grainCfg.step || 0.5;
+      const isExpand  = grainCfg.expand !== undefined;
+      const anchorEnd = grainCfg.anchor === 'end';
+      const grainDur  = Math.max(0.01, base + (isExpand ? step * i : -step * i));
       const s = anchorEnd ? ev.end - grainDur : ev.start;
-      const e = anchorEnd ? ev.end             : ev.start + grainDur;
+      const e = anchorEnd ? ev.end            : ev.start + grainDur;
       evs.push(normalize({ ...ev, start: s, end: e,
         fadeIn:  i === 0     ? (ev.fadeIn  || 0) : 0,
         fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 }));
-    }
-  } else {
-    const n = ev.times || 1;
-    for (let i = 0; i < n; i++) {
+    } else {
       evs.push(normalize({ ...ev,
         fadeIn:  i === 0     ? (ev.fadeIn  || 0) : 0,
         fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 }));
