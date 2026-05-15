@@ -111,6 +111,17 @@
   .prepare-content .title { margin-bottom: 10px; }
   .prepare-content .subtitle { margin-bottom: 0; }
 
+  .prepare-home {
+    width: fit-content;
+    margin-inline: auto;
+    padding: 4px 12px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.15s;
+  }
+  .prepare-home:active { opacity: 0.55; }
+  .prepare-home:focus-visible { outline: 1px dashed #888; outline-offset: 4px; }
+
   .prepare-block {
     flex: 1;
     width: 100%;
@@ -347,8 +358,10 @@
 <!-- ═══ PAGE 2 — PREPARAR ══════════════════════════════════════════ -->
 <section id="page-prepare" class="page">
   <div class="prepare-content">
-    <h2 class="title">DISSIMULATION #5</h2>
-    <p class="subtitle">peça para múltiplos dispositivos<br>localmente situados</p>
+    <div class="prepare-home" role="button" tabindex="0" aria-label="voltar ao início">
+      <h2 class="title">DISSIMULATION #5</h2>
+      <p class="subtitle">peça para múltiplos dispositivos<br>localmente situados</p>
+    </div>
 
     <div class="prepare-block">
       <ol class="instructions">
@@ -1200,6 +1213,16 @@ document.getElementById('btn-share').addEventListener('click', async () => {
       hint.textContent = 'link copiado';
       setTimeout(() => { hint.textContent = prev; }, 1500);
     } catch (_) {}
+  }
+});
+
+// ── título + subtítulo da PREPARE clicáveis = volta pra Landing ─────
+const prepareHome = document.querySelector('.prepare-home');
+prepareHome.addEventListener('click', () => history.back());
+prepareHome.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    history.back();
   }
 });
 
