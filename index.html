@@ -326,18 +326,18 @@
     .ficha, .ficha-title { font-size: 15px; }
   }
 
-  /* ── MOBILE LANDSCAPE / phones bem pequenos ────────────────────── */
+  /* ── PHONES BAIXOS (altura ≤ 720px: iPhone SE/8 e similares) ─────
+     ATENÇÃO: NÃO mexer em font-size aqui — fontes devem ficar
+     CONSISTENTES entre celulares (Giu pediu). Só comprimir layout
+     (QR, paddings, gaps) pra cabe na altura menor. Se ainda assim
+     overflow, prepare-content tem overflow-y: auto → scroll OK. */
   @media (max-height: 720px) and (max-width: 700px) {
-    .title { font-size: 18px; letter-spacing: 4px; }
-    .subtitle { font-size: 12px; letter-spacing: 1.5px; }
     .prepare-block { padding: 4px 0; }
     .instructions { gap: 8px; margin-bottom: 12px; }
-    .instructions li { font-size: 13px; }
     #qrcode { width: 110px; height: 110px; }
     .share-square { width: 110px; height: 110px; }
     .share-btn { width: 54px; height: 54px; }
     .share-btn svg { width: 26px; height: 26px; }
-    .btn-main { padding: 10px 24px; font-size: 15px; }
   }
 </style>
 </head>
@@ -1194,11 +1194,13 @@ function finish() {
         vid.style.opacity = '0';
         document.getElementById('now').textContent = '';
         document.getElementById('timer').textContent = '';
+        exitPlayerFullscreen();
         // TODO V1.1: tela de agradecimentos/créditos antes de voltar
         showPage('landing');
       }
     }, 30);
   } else {
+    exitPlayerFullscreen();
     showPage('landing');
   }
 }
@@ -1269,6 +1271,90 @@ function pushView() {
   history.pushState({}, '');
 }
 
+// ── fullscreen + landscape ──────────────────────────────────────────
+// Estratégia split por plataforma:
+//  - iOS Safari: NÃO suporta requestFullscreen em divs nem orientation.lock.
+//    Usa vid.webkitEnterFullscreen() → abre player nativo do iOS, fullscreen
+//    real, vira automático em landscape. Trade-off: controles nativos do iOS
+//    aparecem (esconde nosso #dark/#info — mas o player nativo já tem fundo
+//    preto, então vid.opacity=0 continua mostrando preto pro "dark").
+//  - Android/desktop: Fullscreen API padrão na div #page-player + lock
+//    landscape via screen.orientation.lock.
+//
+// Tudo é chamado SÍNCRONO dentro do click handler do PLAY pra preservar o
+// user gesture token (iOS é estrito).
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const IS_MOBILE = 'ontouchstart' in window || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+function enterPlayerFullscreen() {
+  if (!IS_MOBILE) return;
+  if (IS_IOS) {
+    const vid = document.getElementById('player-a');
+    if (vid && vid.webkitEnterFullscreen) {
+      try { vid.webkitEnterFullscreen(); } catch (_) {}
+    }
+    return;
+  }
+  // Android / outros
+  const pagePlayer = document.getElementById('page-player');
+  const reqFS = pagePlayer.requestFullscreen || pagePlayer.webkitRequestFullscreen;
+  if (!reqFS) return;
+  try {
+    const p = reqFS.call(pagePlayer);
+    const lockLandscape = () => {
+      if (screen.orientation && screen.orientation.lock) {
+        try { screen.orientation.lock('landscape').catch(() => {}); } catch (_) {}
+      }
+    };
+    if (p && p.then) p.then(lockLandscape).catch(() => {});
+    else lockLandscape();
+  } catch (_) {}
+}
+
+function exitPlayerFullscreen() {
+  // Sai do fullscreen padrão (Android/desktop)
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    try {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) exit.call(document);
+    } catch (_) {}
+  }
+  if (screen.orientation && screen.orientation.unlock) {
+    try { screen.orientation.unlock(); } catch (_) {}
+  }
+  // iOS: sai do player nativo do vídeo
+  const vid = document.getElementById('player-a');
+  if (vid && vid.webkitExitFullscreen) {
+    try { vid.webkitExitFullscreen(); } catch (_) {}
+  }
+}
+
+// Detecta saída manual do fullscreen (Esc no desktop, Concluído no iOS, etc.)
+// Se user saiu ANTES da partitura acabar, aborta e volta pra landing.
+function onFullscreenManualExit() {
+  const isStillFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if (isStillFs) return; // entrada, não saída
+  if (currentPage === 'player' && ps && ps.alive) {
+    abortPlayback();
+    history.back();
+  }
+}
+document.addEventListener('fullscreenchange', onFullscreenManualExit);
+document.addEventListener('webkitfullscreenchange', onFullscreenManualExit);
+// iOS dispara webkitendfullscreen NO VIDEO (não no document) — script já roda
+// depois do <video> ser parseado, então addEventListener inline funciona.
+{
+  const vid = document.getElementById('player-a');
+  if (vid) {
+    vid.addEventListener('webkitendfullscreen', () => {
+      if (currentPage === 'player' && ps && ps.alive) {
+        abortPlayback();
+        history.back();
+      }
+    });
+  }
+}
+
 function abortPlayback() {
   if (ps) {
     ps.alive = false;
@@ -1284,6 +1370,7 @@ function abortPlayback() {
   }
   document.getElementById('now').textContent = '';
   document.getElementById('timer').textContent = '';
+  exitPlayerFullscreen();
 }
 
 window.addEventListener('popstate', () => {
@@ -1404,9 +1491,12 @@ function startPreloading() {
     });
 }
 
-// ── PLAY → audio unlock + vai pra player + startPartitura ───────────
+// ── PLAY → fullscreen + audio unlock + vai pra player + startPartitura ─
 document.getElementById('btn-play').addEventListener('click', () => {
   const vid = document.getElementById('player-a');
+  // Fullscreen PRIMEIRO (síncrono no gesture — iOS exige).
+  // Fire-and-forget: não bloqueia o playback se falhar.
+  enterPlayerFullscreen();
   vid.style.visibility = 'hidden';
   vid.play().then(() => vid.pause())
     .then(() => {
