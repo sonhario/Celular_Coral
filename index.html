@@ -956,6 +956,33 @@ function normalize(ev) {
 let ps = null;
 let vidA, activeVid;
 
+// Hijack dos controles nativos do iOS (player nativo iOS sempre mostra
+// controles em fullscreen — Apple bloqueia esconder. Solução: deixar o
+// controle visível mas reverter seek/pause iniciados pelo user enquanto
+// a partitura tá viva. Nossos seeks/pauses marcam as flags abaixo pra
+// não serem revertidos.)
+let expectedSeek  = false;
+let expectedPause = false;
+
+(() => {
+  const v = document.getElementById('player-a');
+  if (!v) return;
+  v.addEventListener('seeking', () => {
+    if (expectedSeek) return;                       // nosso seek — deixa
+    if (!ps || !ps.alive || !ps.currentEvent) return; // partitura parada — não restora
+    // User scrubbou — volta pra posição esperada (start do evento atual)
+    expectedSeek = true;
+    v.currentTime = ps.currentEvent.start;
+  });
+  v.addEventListener('seeked', () => { expectedSeek = false; });
+  v.addEventListener('pause', () => {
+    if (expectedPause) return;                       // nosso pause — deixa
+    if (!ps || !ps.alive) return;                    // partitura parada — não retoma
+    // User pausou pelo player nativo — retoma
+    v.play().catch(() => {});
+  });
+})();
+
 function startPartitura() {
   // reset + re-roda partitura()
   window._sections = [];
@@ -1118,6 +1145,9 @@ function playNext() {
   document.getElementById('now').textContent =
     '[' + section.name + ']  ' + ps.eventsPlayedInSection + '  ' + ev.label;
 
+  // Novo evento começa → libera flag de pause (não esperamos mais o pause antigo)
+  expectedPause = false;
+
   let done = false;
   const onSeeked = () => {
     if (done) return; done = true;
@@ -1128,6 +1158,7 @@ function playNext() {
     startCheckEnd(vid, ev);
   };
   vid.addEventListener('seeked', onSeeked);
+  expectedSeek = true; // nosso seek — não restaurar
   vid.currentTime = ev.start;
   setTimeout(() => {
     if (!done) { done = true; vid.removeEventListener('seeked', onSeeked); onSeeked(); }
@@ -1144,6 +1175,7 @@ function startCheckEnd(vid, ev) {
       if (ps.stepTo) clearTimeout(ps.stepTo);
 
       if (ev.fadeOut > 0) {
+        expectedPause = true;
         vid.pause();
         const o0 = parseFloat(vid.style.opacity) || 1, v0 = vid.volume, t0 = Date.now();
         if (ps.fadeIv) clearInterval(ps.fadeIv);
@@ -1190,6 +1222,7 @@ function finish() {
       vid.volume = v0 * (1 - t);
       if (t >= 1) {
         clearInterval(fi);
+        expectedPause = true;
         vid.pause();
         vid.style.opacity = '0';
         document.getElementById('now').textContent = '';
@@ -1364,6 +1397,7 @@ function abortPlayback() {
   stopTimer();
   const vid = document.getElementById('player-a');
   if (vid) {
+    expectedPause = true;
     vid.pause();
     vid.style.opacity = '0';
     vid.volume = 0;
