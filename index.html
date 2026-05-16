@@ -445,99 +445,215 @@
 // que viram default pra qualquer { id: n } usado na partitura.
 
 const FRAGMENTS = [
-  { id: 'disc', start: 155.5, end: 155.6 },
 
-  // WORDS:
-  { id: 'w1',  start: 115,    end: 116.1 },
-  { id: 'w2',  start: 43.5,   end: 46    },
-  { id: 'w3',  start: 25.7,   end: 26.9  },
-  { id: 'w4',  start: 14,     end: 16    },
-  { id: 'w5',  start: 148,    end: 155   },
-  { id: 'w7',  start: 124,    end: 127.7 },
-  { id: 'w9',  start: 116.45, end: 117.5 },
-  { id: 'w10', start: 115,    end: 116.1 },
-  { id: 'w11', start: 113,    end: 114.5 },
-  { id: 'w14', start: 102,    end: 105.6 },
-  { id: 'w15', start: 91,     end: 101.8 },
-  { id: 'w17', start: 73,     end: 76.5  },
-  { id: 'w18', start: 54.3,   end: 55.5  },
-  { id: 'w19', start: 53.55,  end: 54    },
-  { id: 'w22', start: 38,     end: 39    },
-  { id: 'w23', start: 34.8,   end: 36    },
-  { id: 'w24', start: 28.5,   end: 29.5  },
-  { id: 'w25', start: 25.7,   end: 26.9  },
-  { id: 'w26', start: 24.8,   end: 25.7  },
-  { id: 'w27', start: 20.1,   end: 21.5  },
-  { id: 'w28', start: 14,     end: 16    },
-  { id: 'w29', start: 10,     end: 10.8  },
+  /* 1.1 disconnect */ { id: 'disc', start: 155.5, end: 155.6 },
+  /* 0.8 connect    */ { id: 'con',  start: 155.8, end: 155.9 },
 
-  // VOGAIS:
-  { id: 'v15', start: 83,    end: 90.24 },
-  { id: 'v14', start: 75.5,  end: 78.5  },
-  { id: 'v13', start: 68.6,  end: 72.3  },
-  { id: 'v12', start: 63.1,  end: 68.3  },
-  { id: 'v11', start: 56.2,  end: 63.1  },
-  { id: 'v10', start: 56,    end: 68.8  },
-  { id: 'v9',  start: 49,    end: 53    },
-  { id: 'v8',  start: 39,    end: 43.3  },
-  { id: 'v7',  start: 36,    end: 37.7  },
-  { id: 'v6',  start: 30,    end: 34.7  },
-  { id: 'v5',  start: 27,    end: 28.3  },
-  { id: 'v4',  start: 22,    end: 24.5  },
-  { id: 'v3',  start: 16,    end: 19    },
-  { id: 'v2',  start: 11,    end: 14    },
-  { id: 'v1',  start: 2.6,   end: 8.8   },
+  /////////////////////////////////////////////////////////////
+  // WORDS
+  /////////////////////////////////////////////////////////////
+  /* dur    nome              id:                              */
+  /* 1.1    andI       */ { id: 'w1',  start: 115,    end: 116.1 },
+  /* 2.5    un easy    */ { id: 'w2',  start: 43.5,   end: 46    },
+  /* 1.2    eat        */ { id: 'w3',  start: 25.7,   end: 26.9  },
+  /* 2      am         */ { id: 'w4',  start: 14,     end: 16    },
+  /* 7      world      */ { id: 'w5',  start: 148,    end: 155   },
+  /* 3.7    world      */ { id: 'w7',  start: 124,    end: 127.7 },
+  /* 1.05   mothers    */ { id: 'w9',  start: 116.45, end: 117.5 },
+  /* 1.1    andI       */ { id: 'w10', start: 115,    end: 116.1 },
+  /* 1.5    body       */ { id: 'w11', start: 113,    end: 114.5 },
+  /* 3.6    get        */ { id: 'w14', start: 102,    end: 105.6 },
+  /* 10.8   r-erkant   */ { id: 'w15', start: 91,     end: 101.8 },
+  /* 3.5    toward     */ { id: 'w17', start: 73,     end: 76.5  },
+  /* 1.2    gives2     */ { id: 'w18', start: 54.3,   end: 55.5  },
+  /* 0.46   what2      */ { id: 'w19', start: 53.55,  end: 54    },
+  /* 1      gives      */ { id: 'w22', start: 38,     end: 39    },
+  /* 1.2    what       */ { id: 'w23', start: 34.8,   end: 36    },
+  /* 1      beak       */ { id: 'w24', start: 28.5,   end: 29.5  },
+  /* 1.2    eat        */ { id: 'w25', start: 25.7,   end: 26.9  },
+  /* 0.9    take       */ { id: 'w26', start: 24.8,   end: 25.7  },
+  /* 1.4    where2     */ { id: 'w27', start: 20.1,   end: 21.5  },
+  /* 2      am         */ { id: 'w28', start: 14,     end: 16    },
+  /* 0.81   where1     */ { id: 'w29', start: 10,     end: 10.8  },
 
-  // CON:
-  { id: 'con', start: 155.8, end: 155.9 },
+  /////////////////////////////////////////////////////////////
+  // VOGAIS
+  /////////////////////////////////////////////////////////////
+  /* s      nome      id                                       */
+  /* 7.24   aa3    */ { id: 'v15', start: 83,   end: 90.24 },
+  /* 3      aa2    */ { id: 'v14', start: 75.5, end: 78.5  },
+  /* 3.4    -ss    */ { id: 'v13', start: 68.6, end: 72    },
+  /* 5.2    ae     */ { id: 'v12', start: 63.1, end: 68.3  },
+  /* 6.9    aa     */ { id: 'v11', start: 56.2, end: 63.1  },
+  /* 12.5   aaa    */ { id: 'v10', start: 56,   end: 68.5  },
+  /* 4      i6     */ { id: 'v9',  start: 49,   end: 53    },
+  /* 4.3    i5     */ { id: 'v8',  start: 39,   end: 43.3  },
+  /* 1.7    uo2    */ { id: 'v7',  start: 36,   end: 37.7  },
+  /* 4.7    i4     */ { id: 'v6',  start: 30,   end: 34.7  },
+  /* 1.3    uo     */ { id: 'v5',  start: 27,   end: 28.3  },
+  /* 2.5    ua     */ { id: 'v4',  start: 22,   end: 24.5  },
+  /* 3      i3     */ { id: 'v3',  start: 16,   end: 19    },
+  /* 3      i2     */ { id: 'v2',  start: 11,   end: 14    },
+  /* 6.2    i1     */ { id: 'v1',  start: 2.6,  end: 8.8   },
 ];
+
+// duração natural de cada fragmento — útil pra usar como base na partitura
+// (ex: dur: dur_id.v7 * 0.5 = metade da duração natural de v7)
+const dur_id = Object.fromEntries(FRAGMENTS.map(f => [f.id, f.end - f.start]));
 
 
 // ════ PARTITURA — 5 SEÇÕES (rodam A CADA PLAY) ═══════════════════════
 // tocadas em ordem: a → b → c → d → e
 // cada seção é um array de eventos. todo evento precisa de { id: n }.
-//
-//   { id: 1 }                    → toca o fragmento 1 inteiro
-//   { id: 1, fadeIn: 2 }         → fragmento 1 com fadeIn de 2s
-//   { id: 5, times: 3 }          → repete fragmento 5 três vezes
-//   { id: 5, dur: 2 }            → só os primeiros 2s do fragmento 5
-//
-// SEGUNDO ARGUMENTO (opcional) = TEMPO LIMITE da seção em segundos.
-// COM limite: a seção roda em LOOP até o limite estourar.
-// SEM limite: toca a lista uma vez e segue.
+// SEGUNDO ARGUMENTO (opcional) de run_* = TEMPO LIMITE da seção em segundos.
 
 function partitura() {
 
   // PARTE A (INÍCIO / DISC):
   run_a([
-    { id: 'disc', grain: { anchor: 'start', expand: 15, step: 0.08 } },
-  ], 30) // >>-----> DURAÇÃO do TIMER de A em segundos
+
+    { id: 'disc',
+      start: rand(155.41, 155.45),
+      dur:   rand(0.01, 0.2),
+      times: rand(2, 3),
+      // fadeIn: 10,
+      limit: 7 },
+
+    { id: 'disc',
+      start: rand(155.45, 155.49),
+      dur:   rand(0.05, 0.4),
+      times: rand(2, 3),
+      // fadeIn: 10,
+      limit: 8 },
+
+    { id: 'disc', grain: { anchor: 'start', expand: 20, step: 0.08 } },
+
+    { id: 'disc', times: 2 },
+
+    { id: 'disc',
+      start: rand(156.2, 156.35),
+      dur:   rand(0.05, 0.4),
+      times: rand(2, 3),
+      limit: 8 },
+
+    { id: 'disc',
+      start: rand(156.35, 156.55),
+      dur:   rand(0.01, 0.2),
+      times: rand(2, 3),
+      // fadeIn: 10,
+      limit: 7 },
+
+  ]) // SEM TIMER da seção — cada objeto tem seu próprio limit
 
 
   // PARTE B (VOGAIS):
   run_b([
 
-  ], rand_fixed(40, 60))  // >>-----> DURAÇÃO ALEATÓRIA do TIMER de B (40 a 60s)
+    { id: 'v7', times: 2 },
+    { id: 'v7', dur: dur_id.v7 * 0.5,  limit: 5 },
+    { id: 'v7', dur: dur_id.v7 * 0.25, limit: 2.5 },
+
+    { id: 'v8', times: 2 },
+    { id: 'v8', dur: dur_id.v8 * 0.5,  limit: 4 },
+    { id: 'v8', dur: dur_id.v8 * 0.25, limit: 2 },
+
+    { id: 'v9', times: 2 },
+    { id: 'v9', dur: dur_id.v9 * 0.5,  limit: 3 },
+    { id: 'v9', dur: dur_id.v9 * 0.25, limit: 1.5 },
+
+    // VOGAIS As (v10 a v15)
+    { id: 'v10', times: 2 },
+    { id: pick(['v11', 'v12', 'v14', 'v15']),
+      dur: rand(0.5, 1),
+      times: rand(2, 4),
+      limit: 20 },
+
+    // VOGAIS Is (v1 a v3, v6, v8, v9)
+    { id: pick(['v1', 'v2', 'v3', 'v6', 'v8', 'v9']),
+      dur: rand(0.5, 1),
+      times: rand(2, 4) },
+
+  ], 60) // >>-----> DURAÇÃO do TIMER de B em segundos
 
 
   // PARTE C (PALAVRAS):
+  // FIXED — sorteia 1 id e 1 dur, repete o mesmo nas N reps:
   run_c([
-    { id: pick(['w1','w3','w5','w11','w14','w22','w27']),
-      dur: rand(0.5, 1.5),
-      times: 5 },
-  ])         // TIMER SEM LIMITE — toca tudo
+
+    { id: pick_fixed(['w19', 'w23', 'w27', 'w29']),
+      dur: rand_fixed(0.5, 1.5),
+      times: rand(1, 3),
+      limit: 20 },
+
+    { id: pick_fixed(['w19', 'w23', 'w27', 'w29']),
+      dur: rand_fixed(0.25, 0.5),
+      times: rand(1, 3),
+      limit: 15 },
+
+    { id: pick_fixed(['w19', 'w23', 'w27', 'w29']),
+      dur: rand_fixed(0.01, 0.25),
+      times: rand(1, 3),
+      limit: 10 },
+
+    { id: pick_fixed(['w19', 'w23', 'w27', 'w29']),
+      dur: rand_fixed(0.5, 1.5),
+      times: rand(1, 3),
+      limit: 8 },
+
+    { id: pick_fixed(['w19', 'w23', 'w27', 'w29']),
+      dur: rand_fixed(0.25, 0.5),
+      times: rand(1, 3),
+      limit: 6 },
+
+    { id: pick_fixed(['w19', 'w23', 'w27', 'w29']),
+      dur: rand_fixed(0.01, 0.25),
+      times: rand(1, 3),
+      limit: 11 },
+
+  ], 70) // >>-----> DURAÇÃO do TIMER de C em segundos
 
 
   // PARTE D (SILÊNCIOS):
+  // v13 ssss, v4 e v5 uoooo
   run_d([
 
-  ], 25) // >>-----> DURAÇÃO do TIMER de D em segundos
+    { id: 'v13', times: 2 },
+
+    { id: pick_fixed(['v4', 'v5']),
+      times: rand(1, 3),
+      limit: 10 },
+
+    { id: pick_fixed(['v4', 'v5']),
+      dur: rand_fixed(0.25, 1),
+      times: rand(1, 3),
+      limit: 10 },
+
+    { id: pick_fixed(['v4', 'v5', 'v13']),
+      dur:  rand_fixed(0.01, 0.5),
+      dark: pick([true, false]),
+      times: rand(1, 3),
+      limit: 20 },
+
+  ], 60) // >>-----> DURAÇÃO do TIMER de D em segundos
 
 
   // PARTE E (FIM)
   run_e([
-    { id: 'con', grain: { anchor: 'start', expand: 15, step: 0.08 } },
-  ]) // TIMER SEM LIMITE — toca tudo uma vez
+
+    { id: 'v13', start: rand(68.6, 71),    dur: rand(0.25,  0.5),   dark: chance(0.25), limit: 20 },
+    { id: 'v13', start: rand(68.6, 71),    dur: rand(0.125, 0.25),  dark: chance(0.5),  limit: 15 },
+    { id: 'v13', start: rand(68.6, 71),    dur: rand(0.06,  0.125), dark: chance(0.75), limit: 8  },
+    { id: 'v13', start: rand(68.6, 71),    dur: rand(0.01,  0.06),  dark: chance(0.95), limit: 4  },
+
+    { id: 'con', start: rand(156,   156.5), dur: rand(0.25, 0.5),   dark: chance(0.95), limit: 8  },
+    { id: 'con', start: rand(156.3, 156.5), dur: rand(0.1,  0.25),  dark: chance(0.6),  limit: 16 },
+
+    { id: 'v15' },
+    { id: 'con', grain: { anchor: 'start', expand: 15, step: 0.08 }, dark: chance(1) },
+    { id: 'con', dark: false, times: 3 },
+    { id: 'con', start: rand(156, 156.6), dur: 0.2, limit: 10 },
+
+  ]) // SEM TIMER da seção — cada objeto controla seu próprio escopo
 
 }
 
