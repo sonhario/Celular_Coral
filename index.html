@@ -242,6 +242,30 @@
     pointer-events: none;
   }
 
+  /* Botão de fullscreen iOS — opt-in (aceita controles nativos do iOS) */
+  .ios-only { display: none; }
+  body.is-ios .ios-only { display: flex; }
+  #btn-fullscreen {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+  }
+  #btn-fullscreen:active { opacity: 1; }
+  #btn-fullscreen svg { width: 20px; height: 20px; }
+
   /* ── MODAL SOBRE ───────────────────────────────────────────────── */
   #modal-sobre {
     display: none;
@@ -398,6 +422,14 @@
   <video id="player-a" class="player" playsinline preload="none" src="V3_keyframes.mp4"></video>
   <div id="dark"></div>
   <div id="muted-badge">🔇 SEM SOM (autoplay mobile)</div>
+  <button id="btn-fullscreen" class="ios-only" aria-label="tela cheia">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9V4h5"/>
+      <path d="M20 9V4h-5"/>
+      <path d="M4 15v5h5"/>
+      <path d="M20 15v5h-5"/>
+    </svg>
+  </button>
   <div id="info">
     <span id="now"></span>
     <span id="timer"></span>
@@ -956,33 +988,6 @@ function normalize(ev) {
 let ps = null;
 let vidA, activeVid;
 
-// Hijack dos controles nativos do iOS (player nativo iOS sempre mostra
-// controles em fullscreen — Apple bloqueia esconder. Solução: deixar o
-// controle visível mas reverter seek/pause iniciados pelo user enquanto
-// a partitura tá viva. Nossos seeks/pauses marcam as flags abaixo pra
-// não serem revertidos.)
-let expectedSeek  = false;
-let expectedPause = false;
-
-(() => {
-  const v = document.getElementById('player-a');
-  if (!v) return;
-  v.addEventListener('seeking', () => {
-    if (expectedSeek) return;                       // nosso seek — deixa
-    if (!ps || !ps.alive || !ps.currentEvent) return; // partitura parada — não restora
-    // User scrubbou — volta pra posição esperada (start do evento atual)
-    expectedSeek = true;
-    v.currentTime = ps.currentEvent.start;
-  });
-  v.addEventListener('seeked', () => { expectedSeek = false; });
-  v.addEventListener('pause', () => {
-    if (expectedPause) return;                       // nosso pause — deixa
-    if (!ps || !ps.alive) return;                    // partitura parada — não retoma
-    // User pausou pelo player nativo — retoma
-    v.play().catch(() => {});
-  });
-})();
-
 function startPartitura() {
   // reset + re-roda partitura()
   window._sections = [];
@@ -1145,9 +1150,6 @@ function playNext() {
   document.getElementById('now').textContent =
     '[' + section.name + ']  ' + ps.eventsPlayedInSection + '  ' + ev.label;
 
-  // Novo evento começa → libera flag de pause (não esperamos mais o pause antigo)
-  expectedPause = false;
-
   let done = false;
   const onSeeked = () => {
     if (done) return; done = true;
@@ -1158,7 +1160,6 @@ function playNext() {
     startCheckEnd(vid, ev);
   };
   vid.addEventListener('seeked', onSeeked);
-  expectedSeek = true; // nosso seek — não restaurar
   vid.currentTime = ev.start;
   setTimeout(() => {
     if (!done) { done = true; vid.removeEventListener('seeked', onSeeked); onSeeked(); }
@@ -1175,7 +1176,6 @@ function startCheckEnd(vid, ev) {
       if (ps.stepTo) clearTimeout(ps.stepTo);
 
       if (ev.fadeOut > 0) {
-        expectedPause = true;
         vid.pause();
         const o0 = parseFloat(vid.style.opacity) || 1, v0 = vid.volume, t0 = Date.now();
         if (ps.fadeIv) clearInterval(ps.fadeIv);
@@ -1222,7 +1222,6 @@ function finish() {
       vid.volume = v0 * (1 - t);
       if (t >= 1) {
         clearInterval(fi);
-        expectedPause = true;
         vid.pause();
         vid.style.opacity = '0';
         document.getElementById('now').textContent = '';
@@ -1305,30 +1304,21 @@ function pushView() {
 }
 
 // ── fullscreen + landscape ──────────────────────────────────────────
-// Estratégia split por plataforma:
-//  - iOS Safari: NÃO suporta requestFullscreen em divs nem orientation.lock.
-//    Usa vid.webkitEnterFullscreen() → abre player nativo do iOS, fullscreen
-//    real, vira automático em landscape. Trade-off: controles nativos do iOS
-//    aparecem (esconde nosso #dark/#info — mas o player nativo já tem fundo
-//    preto, então vid.opacity=0 continua mostrando preto pro "dark").
-//  - Android/desktop: Fullscreen API padrão na div #page-player + lock
-//    landscape via screen.orientation.lock.
-//
-// Tudo é chamado SÍNCRONO dentro do click handler do PLAY pra preservar o
-// user gesture token (iOS é estrito).
+// Strategy:
+//  - Android/desktop: tap PLAY → automático requestFullscreen() na div
+//    #page-player + lock landscape. Sem controles do browser.
+//  - iOS Safari: NÃO usa fullscreen automático no PLAY (porque
+//    webkitEnterFullscreen abre o player nativo com controles que
+//    permitem seek/pause e quebram a partitura — Apple não deixa
+//    esconder). Vídeo fica inline. Safari bar fica visível.
+//    HÁ um botão #btn-fullscreen visível só no iOS pra quem quiser
+//    entrar manualmente sabendo dos trade-offs.
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 const IS_MOBILE = 'ontouchstart' in window || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 function enterPlayerFullscreen() {
-  if (!IS_MOBILE) return;
-  if (IS_IOS) {
-    const vid = document.getElementById('player-a');
-    if (vid && vid.webkitEnterFullscreen) {
-      try { vid.webkitEnterFullscreen(); } catch (_) {}
-    }
-    return;
-  }
-  // Android / outros
+  if (IS_IOS) return;       // iOS: opt-in via botão #btn-fullscreen
+  if (!IS_MOBILE) return;   // desktop: sem fullscreen forçado
   const pagePlayer = document.getElementById('page-player');
   const reqFS = pagePlayer.requestFullscreen || pagePlayer.webkitRequestFullscreen;
   if (!reqFS) return;
@@ -1345,7 +1335,6 @@ function enterPlayerFullscreen() {
 }
 
 function exitPlayerFullscreen() {
-  // Sai do fullscreen padrão (Android/desktop)
   if (document.fullscreenElement || document.webkitFullscreenElement) {
     try {
       const exit = document.exitFullscreen || document.webkitExitFullscreen;
@@ -1355,18 +1344,12 @@ function exitPlayerFullscreen() {
   if (screen.orientation && screen.orientation.unlock) {
     try { screen.orientation.unlock(); } catch (_) {}
   }
-  // iOS: sai do player nativo do vídeo
-  const vid = document.getElementById('player-a');
-  if (vid && vid.webkitExitFullscreen) {
-    try { vid.webkitExitFullscreen(); } catch (_) {}
-  }
 }
 
-// Detecta saída manual do fullscreen (Esc no desktop, Concluído no iOS, etc.)
-// Se user saiu ANTES da partitura acabar, aborta e volta pra landing.
+// Saída manual do fullscreen (Esc/swipe) durante playback → aborta + landing
 function onFullscreenManualExit() {
   const isStillFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  if (isStillFs) return; // entrada, não saída
+  if (isStillFs) return;
   if (currentPage === 'player' && ps && ps.alive) {
     abortPlayback();
     history.back();
@@ -1374,15 +1357,16 @@ function onFullscreenManualExit() {
 }
 document.addEventListener('fullscreenchange', onFullscreenManualExit);
 document.addEventListener('webkitfullscreenchange', onFullscreenManualExit);
-// iOS dispara webkitendfullscreen NO VIDEO (não no document) — script já roda
-// depois do <video> ser parseado, então addEventListener inline funciona.
+
+// Botão de fullscreen opt-in pra iOS — só aparece quando IS_IOS é true
+if (IS_IOS) document.body.classList.add('is-ios');
 {
-  const vid = document.getElementById('player-a');
-  if (vid) {
-    vid.addEventListener('webkitendfullscreen', () => {
-      if (currentPage === 'player' && ps && ps.alive) {
-        abortPlayback();
-        history.back();
+  const fsBtn = document.getElementById('btn-fullscreen');
+  if (fsBtn) {
+    fsBtn.addEventListener('click', () => {
+      const v = document.getElementById('player-a');
+      if (v && v.webkitEnterFullscreen) {
+        try { v.webkitEnterFullscreen(); } catch (_) {}
       }
     });
   }
@@ -1397,7 +1381,6 @@ function abortPlayback() {
   stopTimer();
   const vid = document.getElementById('player-a');
   if (vid) {
-    expectedPause = true;
     vid.pause();
     vid.style.opacity = '0';
     vid.volume = 0;
